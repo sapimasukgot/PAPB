@@ -57,7 +57,10 @@ data class TransactionCategory(
                     lower.contains("kafe") ||
                     lower.contains("warung") ||
                     lower.contains("kopi") ||
-                    lower.contains("coffee")
+                    lower.contains("coffee") ||
+                    lower.contains("dapur") ||
+                    lower.contains("dapoer") ||
+                    lower.contains("kitchen")
         }
 
         fun isSameDay(time1: Long, time2: Long): Boolean {

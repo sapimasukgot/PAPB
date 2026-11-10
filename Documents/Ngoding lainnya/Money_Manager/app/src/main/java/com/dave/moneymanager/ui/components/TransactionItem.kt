@@ -21,27 +21,35 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Church
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.FamilyRestroom
 import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Flight
+import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.LocalAtm
+import androidx.compose.material.icons.filled.LocalCafe
+import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PriceCheck
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.VolunteerActivism
@@ -552,27 +560,41 @@ private fun getCategoryVisuals(tx: Transaction): Pair<ImageVector, Color> {
 
     val catLower = tx.category.lowercase().trim()
     return when {
-        catLower.contains("shield") ->
+        catLower.contains("shield") || catLower.contains("talangan") ->
             Pair(Icons.Default.Shield, Emerald500)
+        catLower.contains("debt") || catLower.contains("hutang") || catLower.contains("utang") ->
+            Pair(Icons.Default.Handshake, Color(0xFFF59E0B))
         catLower.contains("church") || catLower.contains("gereja") || catLower.contains("ibadah") ->
             Pair(Icons.Default.Church, Color(0xFF8B5CF6))
         catLower.contains("with her") || catLower.contains("love") || catLower.contains("pacar") ||
                 catLower.contains("doi") || catLower.contains("kencan") || catLower.contains("date") ->
             Pair(Icons.Default.Favorite, Color(0xFFEC4899))
+        catLower.contains("coffee") || catLower.contains("kopi") ->
+            Pair(Icons.Default.LocalCafe, Amber500)
         catLower.contains("food") || catLower.contains("beverage") || catLower.contains("makan") ||
-                catLower.contains("minum") || catLower.contains("cafe") || catLower.contains("coffee") ->
+                catLower.contains("minum") || catLower.contains("cafe") || catLower.contains("dapur") || catLower.contains("dapoer") ->
             Pair(Icons.Default.Fastfood, Amber500)
         catLower.contains("shopping") || catLower.contains("groceries") || catLower.contains("belanja") ||
                 catLower.contains("mart") || catLower.contains("shopee") || catLower.contains("tokopedia") ->
             Pair(Icons.Default.ShoppingBag, Color(0xFFEC4899))
-        catLower.contains("transport") || catLower.contains("ojek") || catLower.contains("bensin") ||
-                catLower.contains("fuel") || catLower.contains("gocar") || catLower.contains("goride") || catLower.contains("grab") ->
+        catLower.contains("bensin") || catLower.contains("fuel") || catLower.contains("spbu") ->
+            Pair(Icons.Default.LocalGasStation, Color(0xFFF97316))
+        catLower.contains("transport") || catLower.contains("ojek") ||
+                catLower.contains("gocar") || catLower.contains("goride") || catLower.contains("grab") ->
             Pair(Icons.Default.DirectionsCar, Blue500)
+        catLower.contains("game") || catLower.contains("gaming") || catLower.contains("steam") ->
+            Pair(Icons.Default.SportsEsports, Color(0xFF06B6D4))
+        catLower.contains("music") || catLower.contains("musik") ->
+            Pair(Icons.Default.MusicNote, Color(0xFFEC4899))
+        catLower.contains("gadget") || catLower.contains("tech") || catLower.contains("elektronik") ->
+            Pair(Icons.Default.Devices, Color(0xFF06B6D4))
+        catLower.contains("tabung") || catLower.contains("saving") ->
+            Pair(Icons.Default.Savings, Color(0xFF10B981))
         catLower.contains("bill") || catLower.contains("utilities") || catLower.contains("tagihan") ||
                 catLower.contains("pulsa") || catLower.contains("pln") || catLower.contains("listrik") || catLower.contains("pdam") ->
             Pair(Icons.Default.Receipt, Color(0xFF8B5CF6))
         catLower.contains("entertainment") || catLower.contains("hiburan") || catLower.contains("movie") ||
-                catLower.contains("bioskop") || catLower.contains("game") || catLower.contains("steam") || catLower.contains("nonton") ->
+                catLower.contains("bioskop") || catLower.contains("nonton") ->
             Pair(Icons.Default.Movie, Color(0xFF06B6D4))
         catLower.contains("health") || catLower.contains("kesehatan") || catLower.contains("obat") ||
                 catLower.contains("apotek") || catLower.contains("dokter") || catLower.contains("hospital") || catLower.contains("klinik") ->
@@ -608,6 +630,8 @@ private fun getCategoryVisuals(tx: Transaction): Pair<ImageVector, Color> {
             Pair(Icons.Default.FamilyRestroom, Color(0xFF14B8A6))
         catLower.contains("donation") || catLower.contains("charity") || catLower.contains("amal") || catLower.contains("sedekah") || catLower.contains("zakat") ->
             Pair(Icons.Default.VolunteerActivism, Emerald500)
+        catLower.contains("other") || catLower.contains("lain") ->
+            Pair(Icons.Default.Category, Color(0xFF6B7280))
         else ->
             Pair(if (tx.type == Transaction.TYPE_INCOME) Icons.Default.LocalAtm else Icons.Default.Receipt, Slate700)
     }

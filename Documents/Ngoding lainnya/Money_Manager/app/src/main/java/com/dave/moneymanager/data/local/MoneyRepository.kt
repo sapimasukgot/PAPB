@@ -4,6 +4,7 @@ import android.content.Context
 import com.dave.moneymanager.data.model.Bank
 import com.dave.moneymanager.data.model.Budget
 import com.dave.moneymanager.data.model.FilterOptions
+import com.dave.moneymanager.data.model.MyDebtEntry
 import com.dave.moneymanager.data.model.ScrapedNotificationLog
 import com.dave.moneymanager.data.model.ShieldContact
 import com.dave.moneymanager.data.model.ShieldEntry
@@ -23,6 +24,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -72,8 +75,13 @@ class MoneyRepository private constructor(context: Context) {
     private val _shieldContacts = MutableStateFlow<List<ShieldContact>>(emptyList())
     val shieldContacts: StateFlow<List<ShieldContact>> = _shieldContacts.asStateFlow()
 
+    private val _myDebts = MutableStateFlow<List<MyDebtEntry>>(emptyList())
+    val myDebts: StateFlow<List<MyDebtEntry>> = _myDebts.asStateFlow()
+
     private val _transactionEditHistories = MutableStateFlow<Map<Long, List<TransactionEditHistory>>>(emptyMap())
     val transactionEditHistories: StateFlow<Map<Long, List<TransactionEditHistory>>> = _transactionEditHistories.asStateFlow()
+
+    private val notificationProcessMutex = Mutex()
 
     var activeBudgetMonthYear: String = SimpleDateFormat("yyyy-MM", Locale.US).format(Date())
         private set
@@ -91,6 +99,9 @@ class MoneyRepository private constructor(context: Context) {
             loadNotificationLogs()
             loadBudgets()
             loadShields()
+            loadShieldHistories()
+            loadShieldContacts()
+            loadMyDebts()
             loadTransactionEditHistories()
         }
     }
@@ -293,34 +304,60 @@ class MoneyRepository private constructor(context: Context) {
         val defaultAccountNo = when {
             name.equals("GoPay Clone", ignoreCase = true) -> "081234567891"
             name.equals("GoPay", ignoreCase = true) -> "081234567890"
+            name.equals("ShopeePay Clone", ignoreCase = true) -> "081234567891"
             name.equals("ShopeePay", ignoreCase = true) -> "081234567890"
+            name.equals("OVO Clone", ignoreCase = true) -> "081234567891"
             name.equals("OVO", ignoreCase = true) -> "081234567890"
-            name.equals("Bank BNI", ignoreCase = true) || name.equals("BNI", ignoreCase = true) -> "0234567890"
-            name.equals("Bank CIMB", ignoreCase = true) || name.equals("CIMB", ignoreCase = true) || name.equals("CIMB Niaga", ignoreCase = true) -> "701234567890"
-            name.equals("OctoPay", ignoreCase = true) -> "081234567890"
+            name.contains("bca", ignoreCase = true) -> "5270119823"
+            name.contains("bni", ignoreCase = true) -> "0234567890"
+            name.contains("cimb", ignoreCase = true) -> "701234567890"
+            name.contains("octopay", ignoreCase = true) -> "081234567890"
+            name.contains("dana", ignoreCase = true) -> "081234567890"
+            name.contains("mandiri", ignoreCase = true) -> "1370012345678"
+            name.contains("bri", ignoreCase = true) -> "012301001234500"
             else -> ""
         }
         val defaultType = when {
-            name.contains("bni", ignoreCase = true) || name.contains("cimb", ignoreCase = true) -> Bank.TYPE_BANK
+            name.contains("bca", ignoreCase = true) || name.contains("bni", ignoreCase = true) ||
+            name.contains("cimb", ignoreCase = true) || name.contains("mandiri", ignoreCase = true) ||
+            name.contains("bri", ignoreCase = true) -> Bank.TYPE_BANK
+            name.contains("cash", ignoreCase = true) || name.contains("tunai", ignoreCase = true) -> Bank.TYPE_CASH
             else -> Bank.TYPE_EWALLET
         }
         val resolvedColor = when {
-            name.equals("Bank BNI", ignoreCase = true) || name.equals("BNI", ignoreCase = true) -> 0xFFE05A10L
-            name.equals("Bank CIMB", ignoreCase = true) || name.equals("CIMB", ignoreCase = true) || name.equals("CIMB Niaga", ignoreCase = true) -> 0xFFED1C24L
-            name.equals("OctoPay", ignoreCase = true) -> 0xFF8A1538L
-            name.equals("GoPay", ignoreCase = true) -> 0xFF00AED6L
-            name.equals("GoPay Clone", ignoreCase = true) -> 0xFF00838FL
-            name.equals("ShopeePay", ignoreCase = true) -> 0xFFEE4D2DL
-            name.equals("OVO", ignoreCase = true) -> 0xFF4C3494L
+            name.contains("bca clone", ignoreCase = true) -> 0xFF003D75L
+            name.contains("bca", ignoreCase = true) -> 0xFF00529CL
+            name.contains("bni clone", ignoreCase = true) -> 0xFFC04808L
+            name.contains("bni", ignoreCase = true) -> 0xFFE05A10L
+            name.contains("cimb clone", ignoreCase = true) -> 0xFFCC151BL
+            name.contains("cimb", ignoreCase = true) -> 0xFFED1C24L
+            name.contains("octopay clone", ignoreCase = true) -> 0xFF6D0F2BL
+            name.contains("octopay", ignoreCase = true) -> 0xFF8A1538L
+            name.contains("gopay clone", ignoreCase = true) -> 0xFF00838FL
+            name.contains("gopay", ignoreCase = true) -> 0xFF00AED6L
+            name.contains("shopeepay clone", ignoreCase = true) -> 0xFFD63B1CL
+            name.contains("shopee", ignoreCase = true) -> 0xFFEE4D2DL
+            name.contains("ovo clone", ignoreCase = true) -> 0xFF3A2575L
+            name.contains("ovo", ignoreCase = true) -> 0xFF4C3494L
+            name.contains("dana clone", ignoreCase = true) -> 0xFF0B6AB2L
+            name.contains("dana", ignoreCase = true) -> 0xFF118EEAL
+            name.contains("mandiri clone", ignoreCase = true) -> 0xFF002752L
+            name.contains("mandiri", ignoreCase = true) -> 0xFF003876L
+            name.contains("bri clone", ignoreCase = true) -> 0xFF003F78L
+            name.contains("bri", ignoreCase = true) -> 0xFF00529CL
             else -> defaultColor
         }
         val defaultIcon = when {
             name.contains("gopay", ignoreCase = true) -> "gopay"
             name.contains("shopee", ignoreCase = true) -> "shopeepay"
             name.contains("ovo", ignoreCase = true) -> "ovo"
+            name.contains("bca", ignoreCase = true) -> "bca"
             name.contains("bni", ignoreCase = true) -> "bni"
             name.contains("cimb", ignoreCase = true) -> "cimb"
             name.contains("octopay", ignoreCase = true) -> "octopay"
+            name.contains("dana", ignoreCase = true) -> "dana"
+            name.contains("mandiri", ignoreCase = true) -> "mandiri"
+            name.contains("bri", ignoreCase = true) -> "bri"
             else -> "wallet"
         }
 
@@ -424,231 +461,85 @@ class MoneyRepository private constructor(context: Context) {
         postTime: Long,
         isClonedUser: Boolean = false
     ): ScrapedProcessResult = withContext(Dispatchers.IO) {
-        val timestamp = if (postTime > 0) postTime else System.currentTimeMillis()
-        val fullText = "$title $content".trim()
+        notificationProcessMutex.withLock {
+            val timestamp = if (postTime > 0) postTime else System.currentTimeMillis()
+            val fullText = "$title $content".trim()
 
-        if (NotificationParser.containsEmoji(fullText)) {
-            return@withContext ScrapedProcessResult(
-                success = false,
-                isTransfer = false,
-                message = "Notifikasi diabaikan: Mengandung emoji/promosi.",
-                logStatus = "IGNORED (Promosi / Mengandung Emoji)"
-            )
-        }
-
-        if (NotificationParser.isCashbackOrCoinNotification(title, content)) {
-            return@withContext ScrapedProcessResult(
-                success = false,
-                isTransfer = false,
-                message = "Notifikasi diabaikan: Cashback & Koin/Points tidak dicatat.",
-                logStatus = "IGNORED (Cashback/Koin Diabaikan)"
-            )
-        }
-
-        if (NotificationParser.isPromotionalOrMarketingNotification(title, content)) {
-            return@withContext ScrapedProcessResult(
-                success = false,
-                isTransfer = false,
-                message = "Notifikasi diabaikan: Pesan promosi, penawaran, atau marketing.",
-                logStatus = "IGNORED (Promosi / Marketing)"
-            )
-        }
-
-        if (!NotificationParser.hasTransactionConfirmation(fullText)) {
-            return@withContext ScrapedProcessResult(
-                success = false,
-                isTransfer = false,
-                message = "Notifikasi diabaikan: Tidak ada bukti transaksi riil.",
-                logStatus = "IGNORED (Bukan Bukti Transaksi Riil)"
-            )
-        }
-
-        val parsed = NotificationParser.parse(packageName, title, content, isClonedUser)
-        if (parsed == null || !parsed.isValidTransaction) {
-            val status = if (NotificationParser.extractAmount(fullText) == null) {
-                "IGNORED (Nominal Rp tidak ditemukan dalam notifikasi)"
-            } else {
-                "IGNORED (Bukan Transaksi Keuangan)"
-            }
-            return@withContext ScrapedProcessResult(
-                success = false,
-                isTransfer = false,
-                message = "Notifikasi diabaikan: $status",
-                logStatus = status
-            )
-        }
-
-        val bank = getOrCreateBankByName(parsed.targetBankName)
-
-        val recentTxs = dbHelper.getAllTransactions()
-
-        val dedupeWindowMs = 90_000L
-        val isDuplicateTx = recentTxs.any { existing ->
-            existing.isAutoScraped &&
-            existing.type == parsed.type &&
-            existing.amount == parsed.amount &&
-            kotlin.math.abs(existing.timestamp - timestamp) <= dedupeWindowMs &&
-            (
-                existing.bankId == bank.id ||
-                isSameBankFamily(existing.bankName, bank.name)
-            ) &&
-            (
-                existing.destination.equals(parsed.destination, ignoreCase = true) ||
-                existing.note.equals(parsed.note, ignoreCase = true) ||
-                (parsed.destination.isNullOrEmpty() && existing.destination.isNullOrEmpty())
-            )
-        }
-
-        if (isDuplicateTx) {
-            val amtFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(parsed.amount)
-            val logStatus = "IGNORED (Duplikat Transaksi)"
-            recordNotificationLog(
-                ScrapedNotificationLog(
-                    packageName = packageName,
-                    appName = parsed.appName,
-                    title = title,
-                    content = content,
-                    timestamp = timestamp,
-                    status = logStatus,
-                    amount = parsed.amount,
-                    detectedType = parsed.type,
-                    targetBank = parsed.targetBankName,
-                    destination = parsed.destination
+            if (NotificationParser.containsEmoji(fullText)) {
+                return@withLock ScrapedProcessResult(
+                    success = false,
+                    isTransfer = false,
+                    message = "Notifikasi diabaikan: Mengandung emoji/promosi.",
+                    logStatus = "IGNORED (Promosi / Mengandung Emoji)"
                 )
-            )
-            return@withContext ScrapedProcessResult(
-                success = false,
-                isTransfer = false,
-                message = "Notifikasi diabaikan: Transaksi serupa (Rp $amtFormatted) baru saja dicatat kurang dari 90 detik yang lalu.",
-                logStatus = logStatus
-            )
-        }
-
-        val matchWindowMs = 120_000L
-        val matchingOppositeTx = recentTxs.firstOrNull { existing ->
-            existing.type != Transaction.TYPE_TRANSFER &&
-            existing.amount == parsed.amount &&
-            existing.bankId != bank.id &&
-            kotlin.math.abs(existing.timestamp - timestamp) <= matchWindowMs &&
-            ((existing.type == Transaction.TYPE_EXPENSE && parsed.type == Transaction.TYPE_INCOME) ||
-             (existing.type == Transaction.TYPE_INCOME && parsed.type == Transaction.TYPE_EXPENSE))
-        }
-
-        if (matchingOppositeTx != null) {
-
-            val sourceBankId: Long
-            val sourceBankName: String
-            val targetBankId: Long
-            val targetBankName: String
-
-            if (matchingOppositeTx.type == Transaction.TYPE_EXPENSE) {
-                sourceBankId = matchingOppositeTx.bankId
-                sourceBankName = matchingOppositeTx.bankName
-                targetBankId = bank.id
-                targetBankName = bank.name
-            } else {
-                sourceBankId = bank.id
-                sourceBankName = bank.name
-                targetBankId = matchingOppositeTx.bankId
-                targetBankName = matchingOppositeTx.bankName
             }
 
-            dbHelper.deleteTransaction(matchingOppositeTx)
-
-            val transferTx = Transaction(
-                bankId = sourceBankId,
-                bankName = sourceBankName,
-                targetBankId = targetBankId,
-                targetBankName = targetBankName,
-                type = Transaction.TYPE_TRANSFER,
-                amount = parsed.amount,
-                category = "Account Transfer",
-                note = "Transfer: $sourceBankName ➔ $targetBankName",
-                timestamp = timestamp,
-                isAutoScraped = true,
-                sourceApp = parsed.appName,
-                destination = targetBankName
-            )
-            val txId = dbHelper.insertTransaction(transferTx)
-
-            loadBanks()
-            loadAllTransactions()
-            loadFilteredTransactions()
-
-            val logStatus = "PROCESSED (Transfer Otomatis: $sourceBankName ➔ $targetBankName)"
-            recordNotificationLog(
-                ScrapedNotificationLog(
-                    packageName = packageName,
-                    appName = parsed.appName,
-                    title = title,
-                    content = content,
-                    timestamp = timestamp,
-                    status = logStatus,
-                    amount = parsed.amount,
-                    detectedType = Transaction.TYPE_TRANSFER,
-                    targetBank = targetBankName,
-                    destination = targetBankName
+            if (NotificationParser.isCashbackOrCoinNotification(title, content)) {
+                return@withLock ScrapedProcessResult(
+                    success = false,
+                    isTransfer = false,
+                    message = "Notifikasi diabaikan: Cashback & Koin/Points tidak dicatat.",
+                    logStatus = "IGNORED (Cashback/Koin Diabaikan)"
                 )
-            )
-
-            val amtFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(parsed.amount)
-            return@withContext ScrapedProcessResult(
-                success = true,
-                isTransfer = true,
-                message = "Berhasil dicatat sebagai Transfer: $sourceBankName ➔ $targetBankName (Rp $amtFormatted)",
-                transaction = transferTx.copy(id = txId),
-                logStatus = logStatus
-            )
-        }
-
-        if (parsed.type == Transaction.TYPE_EXPENSE && isFoodCategory(parsed.category)) {
-            val allTxs = dbHelper.getAllTransactions()
-            val existingFoodTx = allTxs.firstOrNull { existing ->
-                existing.type == Transaction.TYPE_EXPENSE &&
-                existing.bankId == bank.id &&
-                isFoodCategory(existing.category) &&
-                isSameDay(existing.timestamp, timestamp)
             }
 
-            if (existingFoodTx != null) {
-                val newAmount = existingFoodTx.amount + parsed.amount
-                val mergedDestination = when {
-                    existingFoodTx.destination.isNullOrBlank() -> parsed.destination
-                    parsed.destination.isNullOrBlank() -> existingFoodTx.destination
-                    existingFoodTx.destination.contains(parsed.destination, ignoreCase = true) -> existingFoodTx.destination
-                    parsed.destination.contains(existingFoodTx.destination, ignoreCase = true) -> parsed.destination
-                    else -> "${existingFoodTx.destination}, ${parsed.destination}"
+            if (NotificationParser.isPromotionalOrMarketingNotification(title, content)) {
+                return@withLock ScrapedProcessResult(
+                    success = false,
+                    isTransfer = false,
+                    message = "Notifikasi diabaikan: Pesan promosi, penawaran, atau marketing.",
+                    logStatus = "IGNORED (Promosi / Marketing)"
+                )
+            }
+
+            if (!NotificationParser.hasTransactionConfirmation(fullText)) {
+                return@withLock ScrapedProcessResult(
+                    success = false,
+                    isTransfer = false,
+                    message = "Notifikasi diabaikan: Tidak ada bukti transaksi riil.",
+                    logStatus = "IGNORED (Bukan Bukti Transaksi Riil)"
+                )
+            }
+
+            val parsed = NotificationParser.parse(packageName, title, content, isClonedUser)
+            if (parsed == null || !parsed.isValidTransaction) {
+                val status = if (NotificationParser.extractAmount(fullText) == null) {
+                    "IGNORED (Nominal Rp tidak ditemukan dalam notifikasi)"
+                } else {
+                    "IGNORED (Bukan Transaksi Keuangan)"
                 }
-
-                val mergedNote = when {
-                    existingFoodTx.note.isBlank() -> parsed.note
-                    parsed.note.isBlank() -> existingFoodTx.note
-                    existingFoodTx.note.contains(parsed.note, ignoreCase = true) -> existingFoodTx.note
-                    parsed.note.contains(existingFoodTx.note, ignoreCase = true) -> parsed.note
-                    existingFoodTx.note.startsWith("To: ", ignoreCase = true) && parsed.note.startsWith("To: ", ignoreCase = true) -> {
-                        if (!mergedDestination.isNullOrBlank()) "To: $mergedDestination" else "${existingFoodTx.note} | ${parsed.note}"
-                    }
-                    else -> "${existingFoodTx.note} | ${parsed.note}"
-                }
-
-                val updatedTx = existingFoodTx.copy(
-                    amount = newAmount,
-                    category = "Food & Dining",
-                    destination = mergedDestination,
-                    note = mergedNote,
-                    timestamp = maxOf(existingFoodTx.timestamp, timestamp)
+                return@withLock ScrapedProcessResult(
+                    success = false,
+                    isTransfer = false,
+                    message = "Notifikasi diabaikan: $status",
+                    logStatus = status
                 )
+            }
 
-                dbHelper.updateTransaction(existingFoodTx, updatedTx)
+            val bank = getOrCreateBankByName(parsed.targetBankName)
 
-                loadBanks()
-                loadAllTransactions()
-                loadFilteredTransactions()
+            val recentTxs = dbHelper.getAllTransactions()
 
+            val dedupeWindowMs = 90_000L
+            val isDuplicateTx = recentTxs.any { existing ->
+                existing.isAutoScraped &&
+                existing.type == parsed.type &&
+                existing.amount == parsed.amount &&
+                kotlin.math.abs(existing.timestamp - timestamp) <= dedupeWindowMs &&
+                (
+                    existing.bankId == bank.id ||
+                    isSameBankFamily(existing.bankName, bank.name)
+                ) &&
+                (
+                    existing.destination.equals(parsed.destination, ignoreCase = true) ||
+                    existing.note.equals(parsed.note, ignoreCase = true) ||
+                    (parsed.destination.isNullOrEmpty() && existing.destination.isNullOrEmpty())
+                )
+            }
+
+            if (isDuplicateTx) {
                 val amtFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(parsed.amount)
-                val totalFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(updatedTx.amount)
-                val destInfo = if (!parsed.destination.isNullOrEmpty()) " [To: ${parsed.destination}]" else ""
-                val logStatus = "PROCESSED (Update Food & Dining: +Rp $amtFormatted)"
+                val logStatus = "IGNORED (Duplikat Transaksi)"
                 recordNotificationLog(
                     ScrapedNotificationLog(
                         packageName = packageName,
@@ -663,61 +554,221 @@ class MoneyRepository private constructor(context: Context) {
                         destination = parsed.destination
                     )
                 )
-
-                return@withContext ScrapedProcessResult(
-                    success = true,
+                return@withLock ScrapedProcessResult(
+                    success = false,
                     isTransfer = false,
-                    message = "Berhasil mengupdate Food & Dining di ${bank.name}: +Rp $amtFormatted$destInfo (Total: Rp $totalFormatted)",
-                    transaction = updatedTx,
+                    message = "Notifikasi diabaikan: Transaksi serupa (Rp $amtFormatted) baru saja dicatat kurang dari 90 detik yang lalu.",
                     logStatus = logStatus
                 )
             }
-        }
 
-        val categoryToSave = if (isFoodCategory(parsed.category)) "Food & Dining" else parsed.category
-        val transaction = Transaction(
-            bankId = bank.id,
-            bankName = bank.name,
-            type = parsed.type,
-            amount = parsed.amount,
-            category = categoryToSave,
-            note = parsed.note,
-            timestamp = timestamp,
-            isAutoScraped = true,
-            sourceApp = parsed.appName,
-            destination = parsed.destination
-        )
-        val txId = dbHelper.insertTransaction(transaction)
+            val isDuplicateOfRecentTransfer = recentTxs.any { existing ->
+                existing.isAutoScraped &&
+                existing.type == Transaction.TYPE_TRANSFER &&
+                existing.amount == parsed.amount &&
+                kotlin.math.abs(existing.timestamp - timestamp) <= dedupeWindowMs &&
+                (
+                    existing.bankId == bank.id ||
+                    existing.targetBankId == bank.id ||
+                    isSameBankFamily(existing.bankName, bank.name) ||
+                    isSameBankFamily(existing.targetBankName, bank.name)
+                )
+            }
 
-        loadBanks()
-        loadAllTransactions()
-        loadFilteredTransactions()
+            if (isDuplicateOfRecentTransfer) {
+                val amtFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(parsed.amount)
+                val logStatus = "IGNORED (Bagian Dari Transfer Terproses)"
+                recordNotificationLog(
+                    ScrapedNotificationLog(
+                        packageName = packageName,
+                        appName = parsed.appName,
+                        title = title,
+                        content = content,
+                        timestamp = timestamp,
+                        status = logStatus,
+                        amount = parsed.amount,
+                        detectedType = parsed.type,
+                        targetBank = parsed.targetBankName,
+                        destination = parsed.destination
+                    )
+                )
+                return@withLock ScrapedProcessResult(
+                    success = false,
+                    isTransfer = true,
+                    message = "Notifikasi diabaikan: Transaksi ini sudah dicatat sebagai bagian dari transfer akun (Rp $amtFormatted).",
+                    logStatus = logStatus
+                )
+            }
 
-        val logStatus = "PROCESSED"
-        recordNotificationLog(
-            ScrapedNotificationLog(
-                packageName = packageName,
-                appName = parsed.appName,
-                title = title,
-                content = content,
-                timestamp = timestamp,
-                status = logStatus,
+            val matchWindowMs = 120_000L
+            val matchingOppositeTx = recentTxs.firstOrNull { existing ->
+                existing.type != Transaction.TYPE_TRANSFER &&
+                existing.amount == parsed.amount &&
+                kotlin.math.abs(existing.timestamp - timestamp) <= matchWindowMs &&
+                ((existing.type == Transaction.TYPE_EXPENSE && parsed.type == Transaction.TYPE_INCOME) ||
+                 (existing.type == Transaction.TYPE_INCOME && parsed.type == Transaction.TYPE_EXPENSE))
+            }
+
+            if (matchingOppositeTx != null) {
+                var sourceBankId: Long
+                var sourceBankName: String
+                var targetBankId: Long
+                var targetBankName: String
+
+                if (matchingOppositeTx.type == Transaction.TYPE_EXPENSE) {
+                    sourceBankId = matchingOppositeTx.bankId
+                    sourceBankName = matchingOppositeTx.bankName
+                    targetBankId = bank.id
+                    targetBankName = bank.name
+                } else {
+                    sourceBankId = bank.id
+                    sourceBankName = bank.name
+                    targetBankId = matchingOppositeTx.bankId
+                    targetBankName = matchingOppositeTx.bankName
+                }
+
+                if (sourceBankId == targetBankId || sourceBankName.equals(targetBankName, ignoreCase = true)) {
+                    val allBanks = dbHelper.getAllBanks()
+                    val existingCloneBank = allBanks.find { b ->
+                        b.id != sourceBankId && (
+                            b.name.equals("${sourceBankName} Clone", ignoreCase = true) ||
+                            b.name.contains("${sourceBankName} Clone", ignoreCase = true) ||
+                            b.name.contains("${sourceBankName} 2", ignoreCase = true) ||
+                            b.name.contains("${sourceBankName} Dual", ignoreCase = true) ||
+                            (isSameBankFamily(b.name, sourceBankName) && b.name.contains("Clone", ignoreCase = true))
+                        )
+                    } ?: getOrCreateBankByName("${sourceBankName} Clone")
+
+                    val isParsedFromClone = isClonedUser ||
+                            parsed.appName.contains("Clone", ignoreCase = true) ||
+                            parsed.targetBankName.contains("Clone", ignoreCase = true) ||
+                            packageName.contains("clone", ignoreCase = true) ||
+                            packageName.contains("dual", ignoreCase = true)
+
+                    val isExistingFromClone = matchingOppositeTx.bankName.contains("Clone", ignoreCase = true) ||
+                            matchingOppositeTx.sourceApp?.contains("Clone", ignoreCase = true) == true
+
+                    if (isParsedFromClone) {
+                        if (parsed.type == Transaction.TYPE_INCOME) {
+                            targetBankId = existingCloneBank.id
+                            targetBankName = existingCloneBank.name
+                        } else {
+                            sourceBankId = existingCloneBank.id
+                            sourceBankName = existingCloneBank.name
+                        }
+                    } else if (isExistingFromClone) {
+                        if (matchingOppositeTx.type == Transaction.TYPE_EXPENSE) {
+                            sourceBankId = existingCloneBank.id
+                            sourceBankName = existingCloneBank.name
+                        } else {
+                            targetBankId = existingCloneBank.id
+                            targetBankName = existingCloneBank.name
+                        }
+                    } else {
+                        if (parsed.type == Transaction.TYPE_INCOME) {
+                            targetBankId = existingCloneBank.id
+                            targetBankName = existingCloneBank.name
+                        } else {
+                            sourceBankId = existingCloneBank.id
+                            sourceBankName = existingCloneBank.name
+                        }
+                    }
+                }
+
+                dbHelper.deleteTransaction(matchingOppositeTx)
+
+                val transferTx = Transaction(
+                    bankId = sourceBankId,
+                    bankName = sourceBankName,
+                    targetBankId = targetBankId,
+                    targetBankName = targetBankName,
+                    type = Transaction.TYPE_TRANSFER,
+                    amount = parsed.amount,
+                    category = "Account Transfer",
+                    note = "Transfer: $sourceBankName ➔ $targetBankName",
+                    timestamp = timestamp,
+                    isAutoScraped = true,
+                    sourceApp = parsed.appName,
+                    destination = targetBankName
+                )
+                val txId = dbHelper.insertTransaction(transferTx)
+
+                loadBanks()
+                loadAllTransactions()
+                loadFilteredTransactions()
+
+                val logStatus = "PROCESSED (Transfer Otomatis: $sourceBankName ➔ $targetBankName)"
+                recordNotificationLog(
+                    ScrapedNotificationLog(
+                        packageName = packageName,
+                        appName = parsed.appName,
+                        title = title,
+                        content = content,
+                        timestamp = timestamp,
+                        status = logStatus,
+                        amount = parsed.amount,
+                        detectedType = Transaction.TYPE_TRANSFER,
+                        targetBank = targetBankName,
+                        destination = targetBankName
+                    )
+                )
+
+                val amtFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(parsed.amount)
+                return@withLock ScrapedProcessResult(
+                    success = true,
+                    isTransfer = true,
+                    message = "Berhasil dicatat sebagai Transfer: $sourceBankName ➔ $targetBankName (Rp $amtFormatted)",
+                    transaction = transferTx.copy(id = txId),
+                    logStatus = logStatus
+                )
+            }
+
+            val categoryToSave = if (isFoodCategory(parsed.category)) "Food & Dining" else parsed.category
+            val transaction = Transaction(
+                bankId = bank.id,
+                bankName = bank.name,
+                type = parsed.type,
                 amount = parsed.amount,
-                detectedType = parsed.type,
-                targetBank = parsed.targetBankName,
+                category = categoryToSave,
+                note = parsed.note,
+                timestamp = timestamp,
+                isAutoScraped = true,
+                sourceApp = parsed.appName,
                 destination = parsed.destination
             )
-        )
+            val txId = dbHelper.insertTransaction(transaction)
 
-        val amtFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(parsed.amount)
-        val destInfo = if (!parsed.destination.isNullOrEmpty()) " [To/From: ${parsed.destination}]" else ""
-        return@withContext ScrapedProcessResult(
-            success = true,
-            isTransfer = false,
-            message = "Berhasil dicatat: ${parsed.type} Rp $amtFormatted ke ${bank.name}$destInfo",
-            transaction = transaction.copy(id = txId),
-            logStatus = logStatus
-        )
+            loadBanks()
+            loadAllTransactions()
+            loadFilteredTransactions()
+
+            val logStatus = "PROCESSED"
+            recordNotificationLog(
+                ScrapedNotificationLog(
+                    packageName = packageName,
+                    appName = parsed.appName,
+                    title = title,
+                    content = content,
+                    timestamp = timestamp,
+                    status = logStatus,
+                    amount = parsed.amount,
+                    detectedType = parsed.type,
+                    targetBank = parsed.targetBankName,
+                    destination = parsed.destination
+                )
+            )
+
+            val amtFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(parsed.amount)
+            val actionLabel = if (parsed.type == Transaction.TYPE_INCOME) "Pemasukan" else "Pengeluaran"
+            val destInfo = if (!parsed.destination.isNullOrEmpty()) " [${parsed.destination}]" else ""
+            return@withLock ScrapedProcessResult(
+                success = true,
+                isTransfer = false,
+                message = "Berhasil dicatat: $actionLabel Rp $amtFormatted di ${bank.name}$destInfo",
+                transaction = transaction.copy(id = txId),
+                logStatus = logStatus
+            )
+        }
     }
 
     suspend fun recordNotificationLog(log: ScrapedNotificationLog) = withContext(Dispatchers.IO) {
@@ -1245,16 +1296,86 @@ class MoneyRepository private constructor(context: Context) {
         ok
     }
 
+    suspend fun loadMyDebts() = withContext(Dispatchers.IO) {
+        val list = dbHelper.getAllMyDebts()
+        _myDebts.value = list
+    }
+
+    suspend fun addMyDebt(debt: MyDebtEntry): Long = withContext(Dispatchers.IO) {
+        val id = dbHelper.insertMyDebt(debt)
+        loadMyDebts()
+        loadShieldContacts()
+        id
+    }
+
+    suspend fun updateMyDebt(debt: MyDebtEntry): Boolean = withContext(Dispatchers.IO) {
+        val ok = dbHelper.updateMyDebt(debt)
+        loadMyDebts()
+        loadShieldContacts()
+        ok
+    }
+
+    suspend fun deleteMyDebt(debtId: Long): Boolean = withContext(Dispatchers.IO) {
+        val ok = dbHelper.deleteMyDebt(debtId)
+        loadMyDebts()
+        ok
+    }
+
+    suspend fun settleMyDebt(
+        debtId: Long,
+        bankId: Long?,
+        bankName: String?,
+        deductWallet: Boolean = true
+    ): Boolean = withContext(Dispatchers.IO) {
+        val ok = dbHelper.settleMyDebt(debtId, bankId, bankName, deductWallet)
+        if (ok) {
+            loadMyDebts()
+            if (deductWallet && bankId != null && bankId > 0) {
+                loadBanks()
+                loadAllTransactions()
+                loadFilteredTransactions()
+            }
+        }
+        ok
+    }
+
+    suspend fun unsettleMyDebt(debtId: Long): Boolean = withContext(Dispatchers.IO) {
+        val ok = dbHelper.unsettleMyDebt(debtId)
+        if (ok) {
+            loadMyDebts()
+            loadBanks()
+            loadAllTransactions()
+            loadFilteredTransactions()
+        }
+        ok
+    }
+
+    suspend fun updateMyDebtAvatar(debtId: Long, personName: String, avatarUri: String?): Boolean = withContext(Dispatchers.IO) {
+        val ok = dbHelper.updateMyDebtAvatar(debtId, personName, avatarUri)
+        if (ok) {
+            loadMyDebts()
+            loadShieldContacts()
+        }
+        ok
+    }
+
     private fun isSameBankFamily(bank1: String?, bank2: String?): Boolean {
         if (bank1.isNullOrBlank() || bank2.isNullOrBlank()) return false
         val b1 = bank1.lowercase().trim()
         val b2 = bank2.lowercase().trim()
         if (b1 == b2) return true
+        val clean1 = b1.replace("clone", "").replace("dual", "").replace("2", "").replace("(", "").replace(")", "").trim()
+        val clean2 = b2.replace("clone", "").replace("dual", "").replace("2", "").replace("(", "").replace(")", "").trim()
+        if (clean1 == clean2 && clean1.isNotEmpty()) return true
         if ((b1.contains("gopay") || b1.contains("gojek")) && (b2.contains("gopay") || b2.contains("gojek"))) return true
         if (b1.contains("shopee") && b2.contains("shopee")) return true
         if (b1.contains("ovo") && b2.contains("ovo")) return true
         if (b1.contains("dana") && b2.contains("dana")) return true
         if ((b1.contains("bca") || b1.contains("mybca")) && (b2.contains("bca") || b2.contains("mybca"))) return true
+        if (b1.contains("bni") && b2.contains("bni")) return true
+        if ((b1.contains("cimb") || b1.contains("octo")) && (b2.contains("cimb") || b2.contains("octo"))) return true
+        if (b1.contains("mandiri") && b2.contains("mandiri")) return true
+        if (b1.contains("bri") && b2.contains("bri")) return true
         return false
     }
 

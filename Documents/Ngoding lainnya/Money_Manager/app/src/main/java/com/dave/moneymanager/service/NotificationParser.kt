@@ -158,6 +158,10 @@ object NotificationParser {
         "com.bca",
         "mybca.id",
         "id.co.bca.mybca",
+        "com.bca.mybca",
+        "id.bca.mybca",
+        "id.co.bca",
+        "com.bca.mobile",
 
         "id.bmri.livin",
         "com.bankmandiri.mandirimobile",
@@ -212,7 +216,8 @@ object NotificationParser {
     }
 
     private fun isBcaPackage(pkg: String): Boolean {
-        return pkg == "com.bca" || pkg.contains("mybca") || pkg.contains("bca.mybca")
+        val p = pkg.lowercase().trim()
+        return p == "com.bca" || p.contains("mybca") || p.contains("bca.mybca") || p.contains("id.co.bca") || p.contains("bcadigital")
     }
 
     private fun isMandiriPackage(pkg: String): Boolean {
@@ -560,6 +565,14 @@ object NotificationParser {
         )
     }
 
+    fun isClonedNotification(pkg: String, titleLower: String, isClonedUser: Boolean): Boolean {
+        return isClonedUser ||
+                pkg.contains("clone") || pkg.contains("dual") || pkg.contains("parallel") || pkg.contains("multi") ||
+                pkg.contains("excelliance") || pkg.contains(".island") || pkg.contains("work") ||
+                titleLower.contains("clone") || titleLower.contains(" 2") || titleLower.contains("2") ||
+                titleLower.contains("(2)") || titleLower.contains("dual")
+    }
+
     private fun detectAppAndBank(packageName: String, title: String, content: String, isClonedUser: Boolean = false): Pair<String, String> {
         val pkg = packageName.lowercase().trim()
         if (!isFinancialApp(pkg, title)) return Pair("", "")
@@ -568,50 +581,66 @@ object NotificationParser {
         val contentLower = content.lowercase().trim()
         val combined = "$titleLower $contentLower"
         val isContainer = isContainerPackage(pkg)
+        val isClone = isClonedNotification(pkg, titleLower, isClonedUser)
 
         if (isGoPayPackage(pkg) || (isContainer && (titleLower.contains("gopay") || titleLower.contains("gojek")))) {
-            val isClone = isClonedUser ||
-                    pkg.contains("clone") || pkg.contains("dual") || pkg.contains("parallel") || pkg.contains("multi") ||
-                    pkg.contains("excelliance") || titleLower.contains("clone") ||
-                    titleLower.contains("gopay 2") || titleLower.contains("gopay2") || titleLower.contains("gopay (2)")
             val appLabel = if (isClone) "GoPay Clone" else "GoPay"
             val targetBank = if (isClone) "GoPay Clone" else "GoPay"
             return Pair(appLabel, targetBank)
         }
 
         if (isShopeePackage(pkg) || (isContainer && titleLower.contains("shopee"))) {
-            return Pair("ShopeePay", "ShopeePay")
+            val appLabel = if (isClone) "ShopeePay Clone" else "ShopeePay"
+            val targetBank = if (isClone) "ShopeePay Clone" else "ShopeePay"
+            return Pair(appLabel, targetBank)
         }
 
         if (isOvoPackage(pkg, combined) || (isContainer && titleLower.contains("ovo"))) {
-            return Pair("OVO", "OVO")
+            val appLabel = if (isClone) "OVO Clone" else "OVO"
+            val targetBank = if (isClone) "OVO Clone" else "OVO"
+            return Pair(appLabel, targetBank)
         }
 
         if (isCimbPackage(pkg) || (isContainer && (titleLower.contains("cimb") || titleLower.contains("octo")))) {
             if (combined.contains("octopay") || combined.contains("octo pay")) {
-                return Pair("OctoPay", "OctoPay")
+                val appLabel = if (isClone) "OctoPay Clone" else "OctoPay"
+                val targetBank = if (isClone) "OctoPay Clone" else "OctoPay"
+                return Pair(appLabel, targetBank)
             }
-            return Pair("Bank CIMB", "Bank CIMB")
+            val appLabel = if (isClone) "Bank CIMB Clone" else "Bank CIMB"
+            val targetBank = if (isClone) "Bank CIMB Clone" else "Bank CIMB"
+            return Pair(appLabel, targetBank)
         }
 
         if (isBniPackage(pkg) || (isContainer && (titleLower.contains("bni") || titleLower.contains("wondr")))) {
-            return Pair("Bank BNI", "Bank BNI")
+            val appLabel = if (isClone) "Bank BNI Clone" else "Bank BNI"
+            val targetBank = if (isClone) "Bank BNI Clone" else "Bank BNI"
+            return Pair(appLabel, targetBank)
         }
 
-        if (isBcaPackage(pkg) || (isContainer && titleLower.contains("bca"))) {
-            return Pair("BCA", "BCA")
+        if (isBcaPackage(pkg) || (isContainer && (titleLower.contains("bca") || titleLower.contains("mybca")))) {
+            val isMyBca = pkg.contains("mybca") || titleLower.contains("mybca") || contentLower.contains("mybca")
+            val appLabel = if (isClone) "BCA Clone" else (if (isMyBca) "myBCA" else "BCA")
+            val targetBank = if (isClone) "BCA Clone" else "BCA"
+            return Pair(appLabel, targetBank)
         }
 
         if (isMandiriPackage(pkg) || (isContainer && (titleLower.contains("mandiri") || titleLower.contains("livin")))) {
-            return Pair("Bank Mandiri", "Bank Mandiri")
+            val appLabel = if (isClone) "Bank Mandiri Clone" else "Bank Mandiri"
+            val targetBank = if (isClone) "Bank Mandiri Clone" else "Bank Mandiri"
+            return Pair(appLabel, targetBank)
         }
 
         if (isBriPackage(pkg) || (isContainer && (titleLower.contains("bri") || titleLower.contains("brimo")))) {
-            return Pair("Bank BRI", "Bank BRI")
+            val appLabel = if (isClone) "Bank BRI Clone" else "Bank BRI"
+            val targetBank = if (isClone) "Bank BRI Clone" else "Bank BRI"
+            return Pair(appLabel, targetBank)
         }
 
         if (isDanaPackage(pkg) || (isContainer && titleLower.contains("dana"))) {
-            return Pair("DANA", "DANA")
+            val appLabel = if (isClone) "DANA Clone" else "DANA"
+            val targetBank = if (isClone) "DANA Clone" else "DANA"
+            return Pair(appLabel, targetBank)
         }
 
         return Pair("", "")
@@ -1011,8 +1040,8 @@ object NotificationParser {
         s = s.replace(Regex("(?i)\\s+sebesar\\s+.*$"), "").trim()
 
         val noiseWords = listOf(
-            "berhasil", "sebesar", "sejumlah", "menggunakan", "saldo", "aplikasi", "rp", "idr", "pada", "shopeepay", "gopay", "ovo", "bni", "cimb", "octopay",
-            "was", "successful", "successfully", "using", "balance", "app", "account", "on", "at", "for", "of", "to", "from", "rekening", "dana",
+            "berhasil", "sebesar", "sejumlah", "menggunakan", "saldo", "aplikasi", "rp", "idr", "pada",
+            "was", "successful", "successfully", "using", "balance", "app", "account", "on", "at", "for", "of", "to", "from", "rekening",
             "kamu", "you", "anda", "saya", "aku"
         )
         if (noiseWords.contains(s.lowercase())) return null
@@ -1073,83 +1102,102 @@ object NotificationParser {
 
     fun detectCategory(textLower: String, isIncome: Boolean, isBank: Boolean = false, destination: String? = null): String {
         if (isIncome) {
-
+            val corpus = "$textLower ${(destination ?: "").lowercase()}".trim()
             if (isBank) {
                 return when {
-                    textLower.contains("gaji") || textLower.contains("salary") || textLower.contains("wage") -> "Salary"
-                    textLower.contains("invest") || textLower.contains("reksadana") || textLower.contains("saham") || textLower.contains("stock") -> "Investment"
+                    corpus.contains("gaji") || corpus.contains("salary") || corpus.contains("payroll") || corpus.contains("wage") || corpus.contains("upah") || corpus.contains("honor") -> "Salary"
+                    corpus.contains("bonus") || corpus.contains("thr") || corpus.contains("insentif") || corpus.contains("incentive") || corpus.contains("tunjangan") -> "Bonus"
+                    corpus.contains("invest") || corpus.contains("reksadana") || corpus.contains("saham") || corpus.contains("stock") || corpus.contains("crypto") || corpus.contains("dividen") || corpus.contains("dividend") -> "Investment"
+                    corpus.contains("cashback") || corpus.contains("hadiah") || corpus.contains("reward") -> "Cashback"
+                    corpus.contains("top up") || corpus.contains("topup") || corpus.contains("deposit") -> "Top Up"
                     else -> "Reimburse"
                 }
             }
             return when {
-                textLower.contains("top up") || textLower.contains("topup") || textLower.contains("deposit") -> "Top Up"
-                textLower.contains("cashback") || textLower.contains("hadiah") || textLower.contains("reward") -> "Cashback"
-                textLower.contains("gaji") || textLower.contains("salary") || textLower.contains("wage") -> "Salary"
-                textLower.contains("invest") || textLower.contains("reksadana") || textLower.contains("saham") || textLower.contains("stock") -> "Investment"
+                corpus.contains("top up") || corpus.contains("topup") || corpus.contains("deposit") || corpus.contains("isi saldo") -> "Top Up"
+                corpus.contains("cashback") || corpus.contains("hadiah") || corpus.contains("reward") -> "Cashback"
+                corpus.contains("gaji") || corpus.contains("salary") || corpus.contains("payroll") || corpus.contains("wage") || corpus.contains("upah") || corpus.contains("honor") -> "Salary"
+                corpus.contains("bonus") || corpus.contains("thr") || corpus.contains("insentif") || corpus.contains("incentive") || corpus.contains("tunjangan") -> "Bonus"
+                corpus.contains("invest") || corpus.contains("reksadana") || corpus.contains("saham") || corpus.contains("stock") || corpus.contains("crypto") || corpus.contains("dividen") || corpus.contains("dividend") -> "Investment"
                 else -> "Reimburse"
             }
         } else {
             val destLower = (destination ?: "").lowercase().trim()
             val corpus = "$destLower $textLower".trim()
 
-            val churchRegex = Regex("""\b(?:gki|gbi|gms|hkbp|gpib|jpcc|tiberias|ndc|bethany|bethel|gsja|gkpb|gii|gereja|church|paroki|keuskupan|persembahan|perpuluhan|kolekte|tithe|offering)\b""", RegexOption.IGNORE_CASE)
+            val churchRegex = Regex("""\b(?:gki|gbi|gms|hkbp|gpib|jpcc|tiberias|ndc|bethany|bethel|gsja|gkpb|gii|gereja|church|paroki|keuskupan|persembahan|perpuluhan|kolekte|tithe|offering|katolik|kristen|kapel|katedral|persekutuan)\b""", RegexOption.IGNORE_CASE)
             if (churchRegex.containsMatchIn(corpus)) {
                 return "Church"
             }
 
-            val healthRegex = Regex("""\b(?:apotek|apotik|pharmacy|kimia farma|k-24|k24|halodoc|alodokter|dokter|doctor|dokter gigi|klinik|clinic|siloam|mayapada|mitra keluarga|hermina|prodia|pramita|puskesmas|optik|optik seis|optik melawai|rs|rumah sakit|hospital|obat|medicine|health|healthcare)\b""", RegexOption.IGNORE_CASE)
+            val withHerRegex = Regex("""\b(?:with her|pacar|kekasih|doi|kencan|date|dating|anniversary|bucin|bouquet|hadiah doi|valentine)\b""", RegexOption.IGNORE_CASE)
+            if (withHerRegex.containsMatchIn(corpus)) {
+                return "With Her"
+            }
+
+            val familyRegex = Regex("""\b(?:keluarga|family|orang tua|ortu|ibu|mama|bunda|ayah|papa|bapak|anak|adik|kakak|keponakan|saudara|nafkah|popok|susu anak|baby)\b""", RegexOption.IGNORE_CASE)
+            if (familyRegex.containsMatchIn(corpus)) {
+                return "Family"
+            }
+
+            val homeRegex = Regex("""\b(?:rumah|home|kost|kosan|kontrakan|sewa rumah|sewa kost|furniture|perabotan|perkakas|dekorasi|cat tembok|tukang|renovasi|ledeng|pompa air|servis ac|service ac|laundry|cuci baju|sprei|kasur|bantal|sapu|pel|deterjen|sabun cuci|kitchen set)\b""", RegexOption.IGNORE_CASE)
+            if (homeRegex.containsMatchIn(corpus)) {
+                return "Home"
+            }
+
+            val healthRegex = Regex("""\b(?:apotek|apotik|pharmacy|kimia farma|k-24|k24|century|halodoc|alodokter|klikdokter|dokter|doctor|dokter gigi|dentist|dental|klinik|clinic|siloam|mayapada|mitra keluarga|hermina|pondok indah|prodia|pramita|puskesmas|optik|optik seis|optik melawai|rs|rsud|rumah sakit|hospital|obat|medicine|health|healthcare|vitamin|suplemen|kacamata|perban|fisioterapi|terapi)\b""", RegexOption.IGNORE_CASE)
             if (healthRegex.containsMatchIn(corpus)) {
                 return "Health"
             }
 
-            val transportRegex = Regex("""\b(?:goride|gocar|grabbike|grabcar|maxim|indrive|bluebird|blue bird|mybluebird|mrt|lrt|transjakarta|tj|krl|kai|kereta api|whoosh|kcic|damri|jaklingko|spbu|pertamina|shell|bp akr|vivo|parkir|parking|sky parking|secure parking|tol|toll|jasamarga|jasa marga|e-toll|bensin|fuel|gasoline|ojek|transport)\b""", RegexOption.IGNORE_CASE)
+            val transportRegex = Regex("""\b(?:goride|gocar|grabbike|grabcar|maxim|indrive|bluebird|blue bird|mybluebird|mrt|lrt|transjakarta|tj|krl|commuter|kai|kereta|kereta api|whoosh|kcic|damri|jaklingko|angkot|spbu|pertamina|shell|bp akr|vivo|parkir|parking|sky parking|secure parking|tol|toll|jasamarga|jasa marga|e-toll|etoll|bensin|fuel|gasoline|solar|pertalite|pertamax|dex|ojek|transport|transportasi|tambal ban|bengkel|cuci mobil|cuci motor|car wash)\b""", RegexOption.IGNORE_CASE)
             if (transportRegex.containsMatchIn(corpus)) {
                 return "Transportation"
             }
 
-            val billsRegex = Regex("""\b(?:pln|listrik|token listrik|pdam|air pdam|bpjs|bpjs kesehatan|bpjs ketenagakerjaan|telkom|indihome|biznet|myrepublic|first media|cbn|pulsa|paket data|kuota|telkomsel|byu|by\.u|indosat|im3|xl axiata|axis|tri|smartfren|pbb|pajak|ipl|tagihan|utility|bill|water|electricity|wifi|internet)\b""", RegexOption.IGNORE_CASE)
+            val billsRegex = Regex("""\b(?:pln|listrik|token listrik|token pln|pdam|air pdam|bpjs|bpjs kesehatan|bpjs ketenagakerjaan|telkom|indihome|biznet|myrepublic|first media|firstmedia|cbn|oxygen|iconnet|pulsa|paket data|kuota|telkomsel|byu|by\.u|indosat|im3|xl|xl axiata|axis|tri|three|smartfren|pbb|pajak|ipl|retribusi|sampah|iuran|tagihan|utility|utilities|bill|water|electricity|wifi|internet)\b""", RegexOption.IGNORE_CASE)
             if (billsRegex.containsMatchIn(corpus)) {
                 return "Bills & Utilities"
             }
 
-            val entertainmentRegex = Regex("""\b(?:cinema xxi|xxi|cgv|cinepolis|tix id|bioskop|movie|cinema|steam|playstation|nintendo|google play|unipin|codashop|riot games|valorant|mobile legends|genshin|netflix|spotify|youtube premium|disney\+|disney plus|hbo|vidio|prime video|apple music|dufan|ancol|taman safari|timezone|inul vizta|karaoke|game|games)\b""", RegexOption.IGNORE_CASE)
+            val entertainmentRegex = Regex("""\b(?:cinema xxi|xxi|cgv|cinepolis|tix id|bioskop|movie|cinema|theater|konser|concert|tiket konser|festival|steam|playstation|psn|nintendo|xbox|google play|app store|unipin|codashop|itemku|riot games|valorant|mobile legends|mlbb|genshin|free fire|pubg|netflix|spotify|youtube premium|disney\+|disney plus|disney|hbo|vidio|prime video|wetv|iqiyi|apple music|dufan|ancol|taman safari|waterpark|timezone|funworld|inul vizta|masterpiece|karaoke|game|games|gaming|rekreasi|wisata)\b""", RegexOption.IGNORE_CASE)
             if (entertainmentRegex.containsMatchIn(corpus)) {
                 return "Entertainment"
             }
 
-            val educationRegex = Regex("""\b(?:sekolah|school|universitas|univ|kampus|campus|kuliah|spp|udemy|coursera|ruangguru|zenius|english first|ef|kumon|lia|bimbel|kursus|les|education)\b""", RegexOption.IGNORE_CASE)
+            val educationRegex = Regex("""\b(?:sekolah|school|universitas|univ|institut|politeknik|kampus|campus|kuliah|spp|ukt|uang gedung|udemy|coursera|skillshare|edx|ruangguru|zenius|pahamify|english first|ef|kumon|lia|ilp|bimbel|kursus|les|privat|bootcamp|sertifikasi|toko buku|gramedia|periplus|buku|ebook|jurnal|seminar|webinar|pelatihan|training|workshop|skripsi|tesis|wisuda|education|pendidikan|edukasi)\b""", RegexOption.IGNORE_CASE)
             if (educationRegex.containsMatchIn(corpus)) {
                 return "Education"
             }
 
-            val fitnessRegex = Regex("""\b(?:gym|fitness|celebrity fitness|fitness first|gold's gym|f45|yoga|pilates|badminton|futsal|tenis|tennis|padel)\b""", RegexOption.IGNORE_CASE)
+            val fitnessRegex = Regex("""\b(?:gym|fitness|fitnes|celebrity fitness|fitness first|gold's gym|f45|workout|angkat beban|bodybuilding|crossfit|cardio|treadmill|senam|yoga|pilates|zumba|aerobik|renang|swimming|badminton|bulutangkis|futsal|soccer|sepakbola|mini soccer|basket|basketball|tenis|tennis|tenis meja|padel|lari|running|marathon|gowes|sepeda|cycling|protein|whey|creatine|olahraga|sport)\b""", RegexOption.IGNORE_CASE)
             if (fitnessRegex.containsMatchIn(corpus)) {
                 return "Fitness"
             }
 
-            val petsRegex = Regex("""\b(?:petshop|pet shop|dokter hewan|vet|pet care|grooming|whiskas|royal canin|kucing|anjing)\b""", RegexOption.IGNORE_CASE)
+            val petsRegex = Regex("""\b(?:petshop|pet shop|dokter hewan|vet|pet care|grooming|salon hewan|vaksin hewan|whiskas|royal canin|pro plan|me-o|pasir kucing|cat litter|cat food|dog food|makanan kucing|makanan anjing|kucing|cat|kitten|anjing|dog|puppy|burung|ikan|reptil|hamster|kelinci|pet|pets|hewan)\b""", RegexOption.IGNORE_CASE)
             if (petsRegex.containsMatchIn(corpus)) {
                 return "Pets"
             }
 
-            val travelRegex = Regex("""\b(?:traveloka|tiket\.com|agoda|booking\.com|airbnb|hotel|resort|aston|santika|marriott|hilton|ibis|airasia|garuda indonesia|lion air|citilink|batik air|flight|pesawat|tiket pesawat|travel)\b""", RegexOption.IGNORE_CASE)
+            val travelRegex = Regex("""\b(?:traveloka|tiket\.com|agoda|booking\.com|pegipegi|trivago|airbnb|hotel|villa|resort|penginapan|hostel|homestay|aston|santika|marriott|hilton|ibis|favehotel|airasia|garuda indonesia|garuda|lion air|citilink|batik air|super air jet|pelni|flight|pesawat|tiket pesawat|kapal|paspor|visa|koper|travel|traveling|liburan|holiday|vacation|trip|tour|staycation)\b""", RegexOption.IGNORE_CASE)
             if (travelRegex.containsMatchIn(corpus)) {
                 return "Travel"
             }
 
-            val charityRegex = Regex("""\b(?:kitabisa|dompet dhuafa|baznas|rumah zakat|act|donasi|donation|sedekah|infaq|zakat|panti asuhan|charity)\b""", RegexOption.IGNORE_CASE)
+            val charityRegex = Regex("""\b(?:kitabisa|dompet dhuafa|baznas|rumah zakat|act|benihbaik|panti asuhan|panti jompo|donasi|donation|sedekah|shodaqoh|infaq|zakat|sumbangan|relawan|bansos|charity|amal)\b""", RegexOption.IGNORE_CASE)
             if (charityRegex.containsMatchIn(corpus)) {
                 return "Charity / Donations"
             }
 
             val isShopeeMarketplace = (destLower.contains("shopee") && !destLower.contains("shopeepay")) ||
                     textLower.contains("pesanan shopee") || textLower.contains("belanja di shopee")
-            val shoppingRegex = Regex("""\b(?:indomaret|alfamart|alfamidi|superindo|hypermart|transmart|carrefour|grand lucky|farmers market|ranch market|lotte mart|hero|papaya fresh|tokopedia|lazada|blibli|tiktok shop|zalora|amazon|uniqlo|zara|h&m|pull&bear|stradivarius|bershka|cotton on|miniso|kkv|sociolla|watsons|guardian|gramedia|ace hardware|informa|ikea|mitra10|mr diy|mr\. diy|decathlon|supermarket|belanja|groceries|grocery|market|mall|toko|store)\b""", RegexOption.IGNORE_CASE)
+            val shoppingRegex = Regex("""\b(?:indomaret|alfamart|alfamidi|superindo|hypermart|transmart|carrefour|grand lucky|farmers market|ranch market|lotte mart|hero|papaya fresh|papaya|tokopedia|lazada|blibli|tiktok shop|zalora|amazon|alibaba|uniqlo|zara|h&m|pull&bear|stradivarius|bershka|cotton on|miniso|kkv|sociolla|watsons|guardian|gramedia|ace hardware|informa|ikea|mitra10|mr diy|mr\. diy|decathlon|supermarket|minimarket|hypermarket|toserba|kelontong|belanja|groceries|grocery|market|mall|plaza|outlet|butik|boutique|fashion|distro|pakaian|baju|celana|kaos|kemeja|sepatu|sandal|tas|dompet|jam tangan|aksesoris|perhiasan|kosmetik|skincare|makeup|parfum|thrift|thrifting|toko|store)\b""", RegexOption.IGNORE_CASE)
             if (shoppingRegex.containsMatchIn(corpus) || isShopeeMarketplace) {
                 return "Shopping"
             }
 
-            val foodRegex = Regex("""\b(?:gofood|grabfood|shopeefood|starbucks|kopi kenangan|janji jiwa|fore coffee|fore|flash coffee|point coffee|tomoro|chatime|mixue|xi bo ba|kopi tuku|tuku|anomali|excelso|haus|teguk|mcdonald|mcd|kfc|burger king|hokben|a&w|subway|pizza hut|domino's|dominos|richeese|shihlin|solaria|marugame|yoshinoya|bakmi gm|d'cost|dcost|kintan|shaburi|hanamasa|pepper lunch|mie gacoan|gacoan|kopi|coffee|makan|food|resto|restaurant|cafe|kafe|warung|bakso|sate|soto|nasi|ayam|mie|tea|teh|drink|beverage|boba|bakery|roti|bread|cake|martabak|padang|geprek|kuliner|snack|kantin|dining)\b""", RegexOption.IGNORE_CASE)
+            val foodRegex = Regex("""\b(?:dapur|dapoer|kitchen|catering|katering|warteg|angkringan|warkop|kedai|gofood|grabfood|shopeefood|starbucks|kopi kenangan|janji jiwa|fore coffee|fore|flash coffee|point coffee|tomoro|chatime|mixue|xi bo ba|kopi tuku|tuku|anomali|excelso|haus|teguk|mcdonald|mcd|kfc|burger king|hokben|a&w|subway|pizza hut|domino's|dominos|richeese|shihlin|solaria|marugame|yoshinoya|bakmi gm|d'cost|dcost|kintan|shaburi|hanamasa|pepper lunch|mie gacoan|gacoan|kopi|coffee|makan|food|resto|restaurant|rumah makan|rm|cafe|kafe|warung|bakso|sate|soto|coto|rawon|seblak|siomay|batagor|pempek|bubur|bebek|lele|penyet|geprek|bakar|goreng|panggang|steak|sushi|ramen|dimsum|burger|pizza|nasi|ayam|mie|tea|teh|drink|beverage|boba|juice|jus|es|dessert|gelato|pastry|bakery|roti|bread|cake|donat|donut|martabak|padang|kuliner|snack|cemilan|camilan|jajanan|sarapan|lunch|dinner|eatery|diner|bistro|grill|bbq|kantin|dining)\b""", RegexOption.IGNORE_CASE)
             if (foodRegex.containsMatchIn(corpus)) {
                 return "Food & Dining"
             }

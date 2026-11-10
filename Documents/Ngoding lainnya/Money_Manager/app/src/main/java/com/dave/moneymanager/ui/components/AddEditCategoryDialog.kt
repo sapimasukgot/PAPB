@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Flight
+import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.LocalHospital
@@ -113,6 +114,7 @@ fun AddEditCategoryDialog(
     val iconOptions = listOf(
         IconOption("church", Icons.Default.Church, "Church"),
         IconOption("love", Icons.Default.Favorite, "With Her / Love"),
+        IconOption("debt", Icons.Default.Handshake, "Debt / Hutang"),
         IconOption("reimburse", Icons.Default.PriceCheck, "Reimburse"),
         IconOption("shield", Icons.Default.Shield, "Shield"),
         IconOption("food", Icons.Default.Fastfood, "Food"),

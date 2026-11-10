@@ -88,6 +88,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dave.moneymanager.data.model.Bank
+import com.dave.moneymanager.data.model.MyDebtEntry
 import com.dave.moneymanager.data.model.ShieldContact
 import com.dave.moneymanager.data.model.ShieldEntry
 import com.dave.moneymanager.data.model.ShieldWalletDeduction
@@ -205,6 +206,11 @@ fun ShieldAvatarView(
     }
 }
 
+private enum class ShieldScreenMode(val title: String) {
+    TALANGAN("Talangan Teman"),
+    MY_DEBT("My Debt (Hutang Saya)")
+}
+
 private enum class ShieldTabFilter(val title: String) {
     UNPAID("Belum Lunas"),
     SETTLED("Sudah Lunas"),
@@ -217,6 +223,8 @@ fun ShieldScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+
+    var screenMode by remember { mutableStateOf(ShieldScreenMode.TALANGAN) }
 
     val shields by viewModel.shields.collectAsState()
     val banks by viewModel.banks.collectAsState()
@@ -231,6 +239,14 @@ fun ShieldScreen(
     val shieldContacts by viewModel.shieldContacts.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
 
+    val myDebts by viewModel.myDebts.collectAsState()
+    val totalUnsettledMyDebt by viewModel.totalUnsettledMyDebtAmount.collectAsState()
+    val totalSettledMyDebt by viewModel.totalSettledMyDebtAmount.collectAsState()
+    val unsettledMyDebtCount by viewModel.unsettledMyDebtCount.collectAsState()
+
+    var myDebtTab by remember { mutableStateOf(ShieldTabFilter.UNPAID) }
+    var myDebtSearchQuery by remember { mutableStateOf("") }
+
     var showAddDialog by remember { mutableStateOf(false) }
     var shieldToEdit by remember { mutableStateOf<ShieldEntry?>(null) }
     var shieldToSettle by remember { mutableStateOf<ShieldEntry?>(null) }
@@ -239,6 +255,13 @@ fun ShieldScreen(
     var shieldForAvatarOptions by remember { mutableStateOf<ShieldEntry?>(null) }
     var shieldForPhotoPick by remember { mutableStateOf<ShieldEntry?>(null) }
     var fullPhotoPreviewUri by remember { mutableStateOf<String?>(null) }
+
+    var showAddMyDebtDialog by remember { mutableStateOf(false) }
+    var myDebtToEdit by remember { mutableStateOf<MyDebtEntry?>(null) }
+    var myDebtToDelete by remember { mutableStateOf<MyDebtEntry?>(null) }
+    var myDebtToSettle by remember { mutableStateOf<MyDebtEntry?>(null) }
+    var myDebtForAvatarOptions by remember { mutableStateOf<MyDebtEntry?>(null) }
+    var myDebtForPhotoPick by remember { mutableStateOf<MyDebtEntry?>(null) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -254,6 +277,20 @@ fun ShieldScreen(
         shieldForPhotoPick = null
     }
 
+    val myDebtPhotoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        val target = myDebtForPhotoPick
+        if (uri != null && target != null) {
+            val savedPath = saveShieldAvatar(context, uri, target.personName)
+            if (savedPath != null) {
+                viewModel.updateMyDebtAvatar(target.id, target.personName, savedPath)
+                Toast.makeText(context, "Foto profil ${target.personName} berhasil diubah!", Toast.LENGTH_SHORT).show()
+            }
+        }
+        myDebtForPhotoPick = null
+    }
+
     val filteredList = remember(shields, currentTab, searchQuery) {
         shields.filter { item ->
             val matchesTab = when (currentTab) {
@@ -264,6 +301,21 @@ fun ShieldScreen(
             val matchesSearch = if (searchQuery.isBlank()) true else {
                 item.friendName.contains(searchQuery, ignoreCase = true) ||
                         item.note.contains(searchQuery, ignoreCase = true)
+            }
+            matchesTab && matchesSearch
+        }
+    }
+
+    val filteredMyDebts = remember(myDebts, myDebtTab, myDebtSearchQuery) {
+        myDebts.filter { item ->
+            val matchesTab = when (myDebtTab) {
+                ShieldTabFilter.UNPAID -> !item.isSettled
+                ShieldTabFilter.SETTLED -> item.isSettled
+                ShieldTabFilter.ALL -> true
+            }
+            val matchesSearch = if (myDebtSearchQuery.isBlank()) true else {
+                item.personName.contains(myDebtSearchQuery, ignoreCase = true) ||
+                        item.note.contains(myDebtSearchQuery, ignoreCase = true)
             }
             matchesTab && matchesSearch
         }
@@ -307,7 +359,7 @@ fun ShieldScreen(
                             )
                         )
                         Text(
-                            text = "Lacak talangan teman & tagih hutang mereka",
+                            text = "Lacak talangan teman & kelola hutang Anda",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                                 fontSize = 12.sp
@@ -319,172 +371,33 @@ fun ShieldScreen(
 
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(4.dp)
                 ) {
-                    val isUnpaidSelected = currentTab == ShieldTabFilter.UNPAID
-
-                    Card(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable {
-                                currentTab = if (currentTab == ShieldTabFilter.UNPAID) ShieldTabFilter.ALL else ShieldTabFilter.UNPAID
-                            },
-                        shape = RoundedCornerShape(18.dp),
-                        border = if (isUnpaidSelected) BorderStroke(2.dp, Rose500) else null,
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isUnpaidSelected) Rose500.copy(alpha = 0.22f) else Rose500.copy(alpha = 0.12f)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = if (isUnpaidSelected) 4.dp else 1.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
+                    ShieldScreenMode.values().forEach { mode ->
+                        val isSelected = screenMode == mode
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) (if (mode == ShieldScreenMode.TALANGAN) Emerald500 else Rose500) else Color.Transparent)
+                                .clickable { screenMode = mode }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(26.dp)
-                                        .clip(CircleShape)
-                                        .background(Rose500),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.HourglassTop,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = if (mode == ShieldScreenMode.TALANGAN) Icons.Default.Shield else Icons.Default.Payments,
+                                    contentDescription = null,
+                                    tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Belum Lunas",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Rose500
-                                    )
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = viewModel.formatRupiah(totalUnsettled),
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Rose500,
-                                    fontSize = 17.sp
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "$unsettledCount orang belum bayar",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
-                    }
-
-                    val isSettledSelected = currentTab == ShieldTabFilter.SETTLED
-
-                    Card(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable {
-                                currentTab = if (currentTab == ShieldTabFilter.SETTLED) ShieldTabFilter.ALL else ShieldTabFilter.SETTLED
-                            },
-                        shape = RoundedCornerShape(18.dp),
-                        border = if (isSettledSelected) BorderStroke(2.dp, Emerald500) else null,
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isSettledSelected) Emerald500.copy(alpha = 0.22f) else Emerald500.copy(alpha = 0.12f)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = if (isSettledSelected) 4.dp else 1.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(26.dp)
-                                        .clip(CircleShape)
-                                        .background(Emerald500),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Sudah Lunas",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Emerald500
-                                    )
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = viewModel.formatRupiah(totalSettled),
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Emerald500,
-                                    fontSize = 17.sp
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Berhasil dilunasi",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = { Text("Cari nama teman atau catatan...") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Clear")
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(4.dp)
-                    ) {
-                        ShieldTabFilter.values().forEach { tab ->
-                            val isSelected = currentTab == tab
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(if (isSelected) Emerald500 else Color.Transparent)
-                                    .clickable { currentTab = tab }
-                                    .padding(vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = tab.title,
+                                    text = mode.title,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                     color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 13.sp
@@ -495,59 +408,466 @@ fun ShieldScreen(
                 }
             }
 
-            if (filteredList.isEmpty()) {
+            if (screenMode == ShieldScreenMode.TALANGAN) {
                 item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 40.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
+                        val isUnpaidSelected = currentTab == ShieldTabFilter.UNPAID
+
+                        Card(
                             modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    currentTab = if (currentTab == ShieldTabFilter.UNPAID) ShieldTabFilter.ALL else ShieldTabFilter.UNPAID
+                                },
+                            shape = RoundedCornerShape(18.dp),
+                            border = if (isUnpaidSelected) BorderStroke(2.dp, Rose500) else null,
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isUnpaidSelected) Rose500.copy(alpha = 0.22f) else Rose500.copy(alpha = 0.12f)
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = if (isUnpaidSelected) 4.dp else 1.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(Rose500),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.HourglassTop,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Belum Lunas",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Rose500
+                                        )
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = viewModel.formatRupiah(totalUnsettled),
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Rose500,
+                                        fontSize = 17.sp
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "$unsettledCount orang belum bayar",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                                        fontSize = 11.sp
+                                    )
+                                )
+                            }
+                        }
+
+                        val isSettledSelected = currentTab == ShieldTabFilter.SETTLED
+
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    currentTab = if (currentTab == ShieldTabFilter.SETTLED) ShieldTabFilter.ALL else ShieldTabFilter.SETTLED
+                                },
+                            shape = RoundedCornerShape(18.dp),
+                            border = if (isSettledSelected) BorderStroke(2.dp, Emerald500) else null,
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSettledSelected) Emerald500.copy(alpha = 0.22f) else Emerald500.copy(alpha = 0.12f)
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = if (isSettledSelected) 4.dp else 1.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(Emerald500),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Sudah Lunas",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Emerald500
+                                        )
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = viewModel.formatRupiah(totalSettled),
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Emerald500,
+                                        fontSize = 17.sp
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Berhasil dilunasi",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                                        fontSize = 11.sp
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Cari nama teman atau catatan...") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Clear")
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp)
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(4.dp)
+                        ) {
+                            ShieldTabFilter.values().forEach { tab ->
+                                val isSelected = currentTab == tab
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isSelected) Emerald500 else Color.Transparent)
+                                        .clickable { currentTab = tab }
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = tab.title,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (filteredList.isEmpty()) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
                                 .size(72.dp)
                                 .clip(CircleShape)
                                 .background(Emerald500.copy(alpha = 0.1f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Shield,
-                                contentDescription = null,
-                                tint = Emerald500,
-                                modifier = Modifier.size(36.dp)
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Shield,
+                                    contentDescription = null,
+                                    tint = Emerald500,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = if (searchQuery.isNotEmpty()) "Tidak ada hasil pencarian" else "Belum ada talangan teman",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (searchQuery.isNotEmpty()) "Coba kata kunci lain" else "Saat mencatat pengeluaran, aktifkan opsi Shield!",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)),
+                                fontSize = 12.sp
                             )
                         }
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = if (searchQuery.isNotEmpty()) "Tidak ada hasil pencarian" else "Belum ada talangan teman",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = if (searchQuery.isNotEmpty()) "Coba kata kunci lain" else "Saat mencatat pengeluaran, aktifkan opsi Shield!",
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)),
-                            fontSize = 12.sp
+                    }
+                } else {
+                    items(filteredList, key = { it.id }) { item ->
+                        val itemHistories = remember(shieldHistories, item) {
+                            shieldHistories.filter {
+                                it.shieldId == item.id || it.friendName.trim().equals(item.friendName.trim(), ignoreCase = true)
+                            }
+                        }
+                        ShieldItemCard(
+                            entry = item,
+                            histories = itemHistories,
+                            allTransactions = allTransactions,
+                            onChangeAvatar = { shieldForAvatarOptions = item },
+                            onEdit = { shieldToEdit = item },
+                            onSettle = { shieldToSettle = item },
+                            onUnsettle = { viewModel.unsettleShield(item.id) },
+                            onRemind = { shieldToRemind = item },
+                            onDelete = { shieldToDelete = item }
                         )
                     }
                 }
             } else {
-                items(filteredList, key = { it.id }) { item ->
-                    val itemHistories = remember(shieldHistories, item) {
-                        shieldHistories.filter {
-                            it.shieldId == item.id || it.friendName.trim().equals(item.friendName.trim(), ignoreCase = true)
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        val isUnpaidSelected = myDebtTab == ShieldTabFilter.UNPAID
+
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    myDebtTab = if (myDebtTab == ShieldTabFilter.UNPAID) ShieldTabFilter.ALL else ShieldTabFilter.UNPAID
+                                },
+                            shape = RoundedCornerShape(18.dp),
+                            border = if (isUnpaidSelected) BorderStroke(2.dp, Rose500) else null,
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isUnpaidSelected) Rose500.copy(alpha = 0.22f) else Rose500.copy(alpha = 0.12f)
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = if (isUnpaidSelected) 4.dp else 1.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(Rose500),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.HourglassTop,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Belum Dibayar",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Rose500
+                                        )
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = viewModel.formatRupiah(totalUnsettledMyDebt),
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Rose500,
+                                        fontSize = 17.sp
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "$unsettledMyDebtCount hutang belum lunas",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                                        fontSize = 11.sp
+                                    )
+                                )
+                            }
+                        }
+
+                        val isSettledSelected = myDebtTab == ShieldTabFilter.SETTLED
+
+                        Card(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    myDebtTab = if (myDebtTab == ShieldTabFilter.SETTLED) ShieldTabFilter.ALL else ShieldTabFilter.SETTLED
+                                },
+                            shape = RoundedCornerShape(18.dp),
+                            border = if (isSettledSelected) BorderStroke(2.dp, Emerald500) else null,
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSettledSelected) Emerald500.copy(alpha = 0.22f) else Emerald500.copy(alpha = 0.12f)
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = if (isSettledSelected) 4.dp else 1.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(Emerald500),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Sudah Lunas",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Emerald500
+                                        )
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = viewModel.formatRupiah(totalSettledMyDebt),
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Emerald500,
+                                        fontSize = 17.sp
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Hutang terselesaikan",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                                        fontSize = 11.sp
+                                    )
+                                )
+                            }
                         }
                     }
-                    ShieldItemCard(
-                        entry = item,
-                        histories = itemHistories,
-                        allTransactions = allTransactions,
-                        onChangeAvatar = { shieldForAvatarOptions = item },
-                        onEdit = { shieldToEdit = item },
-                        onSettle = { shieldToSettle = item },
-                        onUnsettle = { viewModel.unsettleShield(item.id) },
-                        onRemind = { shieldToRemind = item },
-                        onDelete = { shieldToDelete = item }
-                    )
+                }
+
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = myDebtSearchQuery,
+                            onValueChange = { myDebtSearchQuery = it },
+                            placeholder = { Text("Cari pemberi pinjaman atau catatan...") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            },
+                            trailingIcon = {
+                                if (myDebtSearchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { myDebtSearchQuery = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Clear")
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp)
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(4.dp)
+                        ) {
+                            ShieldTabFilter.values().forEach { tab ->
+                                val isSelected = myDebtTab == tab
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isSelected) Rose500 else Color.Transparent)
+                                        .clickable { myDebtTab = tab }
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = tab.title,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (filteredMyDebts.isEmpty()) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(CircleShape)
+                                    .background(Rose500.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Payments,
+                                    contentDescription = null,
+                                    tint = Rose500,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = if (myDebtSearchQuery.isNotEmpty()) "Tidak ada hasil pencarian" else "Belum ada catatan hutang",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (myDebtSearchQuery.isNotEmpty()) "Coba kata kunci lain" else "Tekan 'Catat Hutang' di bawah untuk mencatat hutang Anda.",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                } else {
+                    items(filteredMyDebts, key = { it.id }) { item ->
+                        MyDebtItemCard(
+                            entry = item,
+                            formattedAmount = viewModel.formatRupiah(item.amount),
+                            onChangeAvatar = { myDebtForAvatarOptions = item },
+                            onEdit = { myDebtToEdit = item },
+                            onSettle = { myDebtToSettle = item },
+                            onUnsettle = { viewModel.unsettleMyDebt(item.id) },
+                            onDelete = { myDebtToDelete = item }
+                        )
+                    }
                 }
             }
 
@@ -557,11 +877,17 @@ fun ShieldScreen(
         }
 
         FloatingActionButton(
-            onClick = { showAddDialog = true },
+            onClick = {
+                if (screenMode == ShieldScreenMode.TALANGAN) {
+                    showAddDialog = true
+                } else {
+                    showAddMyDebtDialog = true
+                }
+            },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(20.dp),
-            containerColor = Emerald500,
+            containerColor = if (screenMode == ShieldScreenMode.TALANGAN) Emerald500 else Rose500,
             contentColor = Color.White,
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -569,9 +895,12 @@ fun ShieldScreen(
                 modifier = Modifier.padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Tambah Shield")
+                Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Catat Shield", fontWeight = FontWeight.Bold)
+                Text(
+                    if (screenMode == ShieldScreenMode.TALANGAN) "Catat Shield" else "Catat Hutang",
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -865,6 +1194,537 @@ fun ShieldScreen(
             }
         }
     }
+
+    if (showAddMyDebtDialog) {
+        AddEditMyDebtDialog(
+            contacts = shieldContacts,
+            existingShields = shields,
+            onDismiss = { showAddMyDebtDialog = false },
+            onSave = { creditorName, amount, note, timestamp, avatarUri ->
+                viewModel.addMyDebt(creditorName, amount, note, timestamp, avatarUri)
+                showAddMyDebtDialog = false
+                Toast.makeText(context, "Hutang ke $creditorName berhasil dicatat!", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    if (myDebtToEdit != null) {
+        val target = myDebtToEdit!!
+        AddEditMyDebtDialog(
+            entry = target,
+            contacts = shieldContacts,
+            existingShields = shields,
+            onDismiss = { myDebtToEdit = null },
+            onSave = { personName, amount, note, timestamp, avatarUri ->
+                viewModel.updateMyDebt(
+                    target.copy(
+                        personName = personName,
+                        amount = amount,
+                        note = note,
+                        timestamp = timestamp,
+                        avatarUri = avatarUri
+                    )
+                )
+                myDebtToEdit = null
+                Toast.makeText(context, "Catatan hutang ke $personName berhasil diubah!", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    if (myDebtToSettle != null) {
+        val target = myDebtToSettle!!
+        AlertDialog(
+            onDismissRequest = { myDebtToSettle = null },
+            title = { Text("Tandai Hutang Lunas?") },
+            text = { Text("Tandai hutang ke ${target.personName} sebesar ${viewModel.formatRupiah(target.amount)} sudah lunas?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.settleMyDebt(target.id)
+                        myDebtToSettle = null
+                        Toast.makeText(context, "Hutang ke ${target.personName} berhasil dilunasi!", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Emerald500)
+                ) {
+                    Text("Ya, Sudah Lunas", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { myDebtToSettle = null }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+
+    if (myDebtToDelete != null) {
+        val target = myDebtToDelete!!
+        AlertDialog(
+            onDismissRequest = { myDebtToDelete = null },
+            title = { Text("Hapus Catatan Hutang?") },
+            text = { Text("Catatan hutang ke ${target.personName} sebesar ${viewModel.formatRupiah(target.amount)} akan dihapus.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteMyDebt(target.id)
+                        myDebtToDelete = null
+                        Toast.makeText(context, "Catatan hutang dihapus", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Rose500)
+                ) {
+                    Text("Hapus", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { myDebtToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+
+    if (myDebtForAvatarOptions != null) {
+        val target = myDebtForAvatarOptions!!
+        AlertDialog(
+            onDismissRequest = { myDebtForAvatarOptions = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.CameraAlt,
+                    contentDescription = null,
+                    tint = Rose500,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Foto Profil ${target.personName}",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    ShieldAvatarView(
+                        avatarUri = target.avatarUri,
+                        friendName = target.personName,
+                        isSettled = target.isSettled,
+                        size = 80.dp,
+                        onClick = {
+                            if (target.avatarUri != null) {
+                                fullPhotoPreviewUri = target.avatarUri
+                                myDebtForAvatarOptions = null
+                            }
+                        }
+                    )
+                    Text(
+                        text = "Pilih foto dari galeri untuk memudahkan mengenali orang ini.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        myDebtForPhotoPick = target
+                        myDebtPhotoPickerLauncher.launch("image/*")
+                        myDebtForAvatarOptions = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Rose500)
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(if (target.avatarUri == null) "Pilih Foto" else "Ganti Foto")
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (target.avatarUri != null) {
+                        TextButton(
+                            onClick = {
+                                viewModel.updateMyDebtAvatar(target.id, target.personName, null)
+                                Toast.makeText(context, "Foto profil dihapus", Toast.LENGTH_SHORT).show()
+                                myDebtForAvatarOptions = null
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = Rose500)
+                        ) {
+                            Text("Hapus")
+                        }
+                    }
+                    TextButton(onClick = { myDebtForAvatarOptions = null }) {
+                        Text("Batal")
+                    }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun MyDebtItemCard(
+    entry: MyDebtEntry,
+    formattedAmount: String,
+    onChangeAvatar: () -> Unit,
+    onEdit: () -> Unit,
+    onSettle: () -> Unit,
+    onUnsettle: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID")) }
+    val formattedDate = remember(entry.timestamp) { dateFormat.format(Date(entry.timestamp)) }
+    val isSettled = entry.isSettled
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isSettled) Emerald500.copy(alpha = 0.35f) else Rose500.copy(alpha = 0.3f)
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ShieldAvatarView(
+                    avatarUri = entry.avatarUri,
+                    friendName = entry.personName,
+                    isSettled = isSettled,
+                    showCameraBadge = true,
+                    size = 46.dp,
+                    onClick = onChangeAvatar
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = entry.personName,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = formattedDate,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp
+                        )
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = formattedAmount,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (isSettled) Emerald500 else Rose500,
+                            fontSize = 16.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSettled) Emerald500.copy(alpha = 0.12f) else Rose500.copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = if (isSettled) "Lunas" else "Belum Dibayar",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSettled) Emerald500 else Rose500,
+                                fontSize = 10.sp
+                            )
+                        )
+                    }
+                }
+            }
+
+            if (entry.note.isNotBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = entry.note,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (!isSettled) {
+                    Button(
+                        onClick = onSettle,
+                        colors = ButtonDefaults.buttonColors(containerColor = Emerald500),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Tandai Lunas", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = onUnsettle,
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Undo,
+                            contentDescription = null,
+                            tint = Amber500,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Batal Lunas", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Amber500)
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Hutang",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Hapus Hutang",
+                        tint = Rose500,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddEditMyDebtDialog(
+    entry: MyDebtEntry? = null,
+    contacts: List<ShieldContact>,
+    existingShields: List<ShieldEntry> = emptyList(),
+    onDismiss: () -> Unit,
+    onSave: (creditorName: String, amount: Double, note: String, timestamp: Long, avatarUri: String?) -> Unit
+) {
+    var creditorName by remember { mutableStateOf(entry?.personName ?: "") }
+    var amountText by remember {
+        mutableStateOf(
+            if (entry != null) {
+                if (entry.amount % 1.0 == 0.0) entry.amount.toLong().toString() else entry.amount.toString()
+            } else ""
+        )
+    }
+    var note by remember { mutableStateOf(entry?.note ?: "") }
+    val timestamp = remember { entry?.timestamp ?: System.currentTimeMillis() }
+    var customAvatarUri by remember { mutableStateOf(entry?.avatarUri) }
+
+    var showContactPicker by remember { mutableStateOf(false) }
+    var showCalc by remember { mutableStateOf(false) }
+
+    val matchedContact = remember(creditorName, contacts) {
+        val trimmed = creditorName.trim()
+        if (trimmed.isEmpty()) null
+        else contacts.find { it.name.trim().equals(trimmed, ignoreCase = true) }
+    }
+    val effectiveAvatarUri = customAvatarUri ?: matchedContact?.avatarUri
+
+    if (showContactPicker) {
+        SearchableContactDialog(
+            contacts = contacts,
+            existingShields = existingShields,
+            onDismiss = { showContactPicker = false },
+            onSelectContact = { name, avatar ->
+                creditorName = name
+                customAvatarUri = avatar
+                showContactPicker = false
+            }
+        )
+    }
+
+    if (showCalc) {
+        CalculatorDialog(
+            initialAmount = amountText,
+            onDismiss = { showCalc = false },
+            onApply = { res ->
+                amountText = if (res % 1.0 == 0.0) res.toLong().toString() else res.toString()
+                showCalc = false
+            }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Payments,
+                    contentDescription = null,
+                    tint = Rose500
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (entry == null) "Catat Hutang Baru" else "Edit Catatan Hutang",
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (contacts.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showContactPicker = true },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Blue500.copy(alpha = 0.1f),
+                        border = BorderStroke(1.dp, Blue500.copy(alpha = 0.35f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PersonSearch,
+                                contentDescription = null,
+                                tint = Blue500,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Pilih / Import Kontak",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Blue500
+                                )
+                                Text(
+                                    text = "Gunakan kontak dari Shield Tracker",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = creditorName,
+                    onValueChange = { creditorName = it },
+                    label = { Text("Nama Pemberi Pinjaman") },
+                    placeholder = { Text("Contoh: Budi, Bos, Ibu") },
+                    singleLine = true,
+                    leadingIcon = {
+                        ShieldAvatarView(
+                            avatarUri = effectiveAvatarUri,
+                            friendName = creditorName.ifBlank { "?" },
+                            size = 28.dp
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it.filter { char -> char.isDigit() || char == '.' } },
+                    label = { Text("Nominal Hutang (Rp)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    trailingIcon = {
+                        IconButton(onClick = { showCalc = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Calculate,
+                                contentDescription = "Kalkulator",
+                                tint = Rose500
+                            )
+                        }
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Catatan / Keperluan (Opsional)") },
+                    placeholder = { Text("Contoh: Pinjam bayar kos, beli makan") },
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amt = amountText.toDoubleOrNull() ?: 0.0
+                    if (creditorName.isNotBlank() && amt > 0) {
+                        onSave(creditorName.trim(), amt, note.trim(), timestamp, effectiveAvatarUri)
+                    }
+                },
+                enabled = creditorName.isNotBlank() && (amountText.toDoubleOrNull() ?: 0.0) > 0,
+                colors = ButtonDefaults.buttonColors(containerColor = Rose500)
+            ) {
+                Text(
+                    text = if (entry == null) "Simpan Hutang" else "Simpan Perubahan",
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Batal")
+            }
+        }
+    )
 }
 
 @Composable

@@ -132,7 +132,7 @@ class MoneyNotificationListenerService : NotificationListenerService() {
             return
         }
 
-        val dedupeKey = "${title.trim().lowercase()}|${content.trim().lowercase()}"
+        val dedupeKey = "$packageName|${title.trim().lowercase()}|${content.trim().lowercase()}"
         val now = System.currentTimeMillis()
         recentNotificationTimestamps.entries.removeIf { now - it.value > 30_000L }
         val lastSeen = recentNotificationTimestamps[dedupeKey]
@@ -144,8 +144,16 @@ class MoneyNotificationListenerService : NotificationListenerService() {
 
         val isClonedUser = try {
             val userStr = sbn.user?.toString() ?: ""
-            val isNotUserZero = !userStr.contains("UserHandle{0}") && !userStr.contains("UserHandle[0]") && !userStr.endsWith("0}")
-            isNotUserZero || userStr.contains("999") || userStr.contains("95") || userStr.contains("10")
+            val keyStr = sbn.key ?: ""
+            val isNotUserZero = !userStr.contains("UserHandle{0}") &&
+                    !userStr.contains("UserHandle[0]") &&
+                    !userStr.endsWith("0}") &&
+                    !userStr.endsWith("(0)") &&
+                    !userStr.endsWith("[0]")
+            val isDualKey = keyStr.startsWith("999|") || keyStr.startsWith("95|") ||
+                    keyStr.startsWith("10|") || keyStr.startsWith("11|") ||
+                    keyStr.startsWith("12|") || keyStr.contains("clone")
+            isNotUserZero || isDualKey || userStr.contains("999") || userStr.contains("95") || userStr.contains("10")
         } catch (_: Exception) {
             false
         }

@@ -864,5 +864,227 @@ class NotificationParserTest {
         assertEquals("Pets", result!!.category)
         assertEquals("Pet Shop Cat Lover", result.destination)
     }
+
+    @Test
+    fun testMyBcaQrisDapoer() {
+        val result = NotificationParser.parse(
+            packageName = "id.co.bca.mybca",
+            title = "myBCA",
+            content = "Pembayaran QRIS sebesar Rp 35.000 ke DAPOER SOLO berhasil dilakukan pada 10/11/2026."
+        )
+        assertNotNull(result)
+        assertEquals("BCA", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, result.type)
+        assertEquals(35000.0, result.amount, 0.001)
+        assertEquals("Food & Dining", result.category)
+    }
+
+    @Test
+    fun testMyBcaOutgoingTransfer() {
+        val result = NotificationParser.parse(
+            packageName = "id.co.bca.mybca",
+            title = "myBCA",
+            content = "Transfer ke BUDI SANTOSO sebesar Rp 100.000 berhasil pada 10/11/2026."
+        )
+        assertNotNull(result)
+        assertEquals("BCA", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, result.type)
+        assertEquals(100000.0, result.amount, 0.001)
+        assertEquals("BUDI SANTOSO", result.destination)
+    }
+
+    @Test
+    fun testMyBcaIncomingTransfer() {
+        val result = NotificationParser.parse(
+            packageName = "id.co.bca.mybca",
+            title = "myBCA",
+            content = "Dana masuk sebesar Rp 250.000 dari SITI RAHMAWATI pada 10/11/2026."
+        )
+        assertNotNull(result)
+        assertEquals("BCA", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_INCOME, result.type)
+        assertEquals(250000.0, result.amount, 0.001)
+        assertEquals("Reimburse", result.category)
+        assertEquals("SITI RAHMAWATI", result.destination)
+    }
+
+    @Test
+    fun testCategoryAutoAssign_DapurAndDapoerKeywords() {
+        val r1 = NotificationParser.parse(
+            packageName = "com.gojek.app",
+            title = "GoPay",
+            content = "Pembayaran di Dapur Solo sebesar Rp 50.000 berhasil"
+        )
+        assertNotNull(r1)
+        assertEquals("Food & Dining", r1!!.category)
+
+        val r2 = NotificationParser.parse(
+            packageName = "com.shopeepay.id",
+            title = "ShopeePay",
+            content = "Pembayaran di Warteg Kharisma sebesar Rp 20.000 berhasil"
+        )
+        assertNotNull(r2)
+        assertEquals("Food & Dining", r2!!.category)
+    }
+
+    @Test
+    fun testShopeePayCloneDetection() {
+        val result = NotificationParser.parse(
+            packageName = "com.shopee.id.clone",
+            title = "ShopeePay",
+            content = "Transfer ke BCA sebesar Rp 50.000 berhasil"
+        )
+        assertNotNull(result)
+        assertEquals("ShopeePay Clone", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, result.type)
+        assertEquals(50000.0, result.amount, 0.001)
+    }
+
+    @Test
+    fun testOvoCloneDetection() {
+        val result = NotificationParser.parse(
+            packageName = "ovo.id",
+            title = "OVO (Clone)",
+            content = "Transfer ke CIMB sebesar Rp 25.000 berhasil"
+        )
+        assertNotNull(result)
+        assertEquals("OVO Clone", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, result.type)
+        assertEquals(25000.0, result.amount, 0.001)
+    }
+
+    @Test
+    fun testBcaCloneDetection() {
+        val result = NotificationParser.parse(
+            packageName = "id.co.bca.mybca",
+            title = "myBCA",
+            content = "Transfer ke GoPay sebesar Rp 100.000 berhasil pada 10/11/2026.",
+            isClonedUser = true
+        )
+        assertNotNull(result)
+        assertEquals("BCA Clone", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, result.type)
+        assertEquals(100000.0, result.amount, 0.001)
+    }
+
+    @Test
+    fun testTransferDestinationRecognition() {
+        val result = NotificationParser.parse(
+            packageName = "id.co.bca.mybca",
+            title = "myBCA",
+            content = "Transfer ke GOPAY sebesar Rp 100.000 berhasil pada 10/11/2026."
+        )
+        assertNotNull(result)
+        assertEquals("BCA", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, result.type)
+        assertEquals(100000.0, result.amount, 0.001)
+        assertEquals("GOPAY", result.destination)
+    }
+
+    @Test
+    fun testMandiriCloneDetection() {
+        val result = NotificationParser.parse(
+            packageName = "id.bmri.livin.clone",
+            title = "Livin' by Mandiri",
+            content = "Transfer ke DANA sebesar Rp 75.000 berhasil"
+        )
+        assertNotNull(result)
+        assertEquals("Bank Mandiri Clone", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, result.type)
+        assertEquals(75000.0, result.amount, 0.001)
+    }
+
+    @Test
+    fun testBriCloneDetection() {
+        val result = NotificationParser.parse(
+            packageName = "id.co.bri.brimo",
+            title = "BRImo (Clone)",
+            content = "Transaksi Transfer sebesar Rp 150.000 ke BNI berhasil"
+        )
+        assertNotNull(result)
+        assertEquals("Bank BRI Clone", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, result.type)
+        assertEquals(150000.0, result.amount, 0.001)
+    }
+
+    @Test
+    fun testBniCloneDetection() {
+        val result = NotificationParser.parse(
+            packageName = "id.co.bni.wondr",
+            title = "wondr by BNI Clone",
+            content = "Transfer ke BCA sebesar Rp 200.000 berhasil"
+        )
+        assertNotNull(result)
+        assertEquals("Bank BNI Clone", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, result.type)
+        assertEquals(200000.0, result.amount, 0.001)
+    }
+
+    @Test
+    fun testCimbCloneDetection() {
+        val result = NotificationParser.parse(
+            packageName = "com.cimbniaga.octomobile.clone",
+            title = "OCTO Mobile",
+            content = "Transfer ke ShopeePay sebesar Rp 50.000 berhasil"
+        )
+        assertNotNull(result)
+        assertEquals("Bank CIMB Clone", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, result.type)
+        assertEquals(50000.0, result.amount, 0.001)
+    }
+
+    @Test
+    fun testDanaCloneDetection() {
+        val result = NotificationParser.parse(
+            packageName = "id.dana",
+            title = "DANA (2)",
+            content = "Kirim uang Rp 25.000 ke GoPay berhasil"
+        )
+        assertNotNull(result)
+        assertEquals("DANA Clone", result!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, result.type)
+        assertEquals(25000.0, result.amount, 0.001)
+    }
+
+    @Test
+    fun testBidirectionalGopayBcaParsing() {
+        // Direction 1: GoPay -> BCA
+        val gopayOut = NotificationParser.parse(
+            packageName = "com.gojek.app",
+            title = "GoPay",
+            content = "Transfer ke BCA sebesar Rp 50.000 berhasil"
+        )
+        val bcaIn = NotificationParser.parse(
+            packageName = "id.co.bca.mybca",
+            title = "myBCA",
+            content = "Dana masuk Rp 50.000 dari GOPAY"
+        )
+        assertNotNull(gopayOut)
+        assertEquals("GoPay", gopayOut!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, gopayOut.type)
+
+        assertNotNull(bcaIn)
+        assertEquals("BCA", bcaIn!!.targetBankName)
+        assertEquals(Transaction.TYPE_INCOME, bcaIn.type)
+
+        // Direction 2: BCA -> GoPay
+        val bcaOut = NotificationParser.parse(
+            packageName = "id.co.bca.mybca",
+            title = "myBCA",
+            content = "Transfer ke GOPAY sebesar Rp 50.000 berhasil"
+        )
+        val gopayIn = NotificationParser.parse(
+            packageName = "com.gojek.app",
+            title = "GoPay",
+            content = "Kamu menerima transfer sebesar Rp 50.000 dari BCA"
+        )
+        assertNotNull(bcaOut)
+        assertEquals("BCA", bcaOut!!.targetBankName)
+        assertEquals(Transaction.TYPE_EXPENSE, bcaOut.type)
+
+        assertNotNull(gopayIn)
+        assertEquals("GoPay", gopayIn!!.targetBankName)
+        assertEquals(Transaction.TYPE_INCOME, gopayIn.type)
+    }
 }
 

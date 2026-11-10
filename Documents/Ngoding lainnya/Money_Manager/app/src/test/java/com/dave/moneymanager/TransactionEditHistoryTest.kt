@@ -122,9 +122,13 @@ class TransactionEditHistoryTest {
 
     @Test
     fun testIsSameDay() {
-        val cal1 = java.util.Calendar.getInstance()
+        val cal1 = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 10)
+            set(java.util.Calendar.MINUTE, 0)
+        }
         val cal2 = java.util.Calendar.getInstance().apply {
-            add(java.util.Calendar.HOUR_OF_DAY, 2)
+            set(java.util.Calendar.HOUR_OF_DAY, 12)
+            set(java.util.Calendar.MINUTE, 0)
         }
         val calDifferentDay = java.util.Calendar.getInstance().apply {
             add(java.util.Calendar.DAY_OF_YEAR, -1)

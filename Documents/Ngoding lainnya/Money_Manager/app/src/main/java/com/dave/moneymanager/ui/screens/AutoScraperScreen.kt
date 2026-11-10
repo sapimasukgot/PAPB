@@ -1,8 +1,6 @@
 package com.dave.moneymanager.ui.screens
 
 import android.content.Context
-import android.content.Intent
-import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,34 +16,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -56,14 +44,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.dave.moneymanager.data.model.ScrapedNotificationLog
-import com.dave.moneymanager.ui.theme.Amber500
-import com.dave.moneymanager.ui.theme.ColorBNI
-import com.dave.moneymanager.ui.theme.ColorCIMB
-import com.dave.moneymanager.ui.theme.ColorGoPay
-import com.dave.moneymanager.ui.theme.ColorGoPayClone
-import com.dave.moneymanager.ui.theme.ColorOVO
-import com.dave.moneymanager.ui.theme.ColorOctoPay
-import com.dave.moneymanager.ui.theme.ColorShopeePay
 import com.dave.moneymanager.ui.theme.Emerald500
 import com.dave.moneymanager.ui.theme.Rose500
 import com.dave.moneymanager.ui.viewmodel.MoneyViewModel
@@ -79,15 +59,12 @@ fun AutoScraperScreen(viewModel: MoneyViewModel) {
         notificationLogs.filter { it.status.startsWith("PROCESSED") }
     }
 
-    val isServiceLive by com.dave.moneymanager.service.MoneyNotificationListenerService.isServiceRunningFlow.collectAsState()
-    var isPermissionGranted by remember { mutableStateOf(checkNotificationPermission(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                isPermissionGranted = checkNotificationPermission(context)
-                if (isPermissionGranted && !com.dave.moneymanager.service.MoneyNotificationListenerService.isServiceRunning) {
+                if (checkNotificationPermission(context) && !com.dave.moneymanager.service.MoneyNotificationListenerService.isServiceRunning) {
                     com.dave.moneymanager.service.MoneyNotificationListenerService.forceReconnect(context)
                 }
             }
@@ -101,200 +78,8 @@ fun AutoScraperScreen(viewModel: MoneyViewModel) {
             .fillMaxSize()
             .padding(horizontal = 16.dp),
         contentPadding = PaddingValues(top = 16.dp, bottom = 90.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-
-        item {
-            val isFullyActive = isPermissionGranted && isServiceLive
-            val bannerColor = when {
-                !isPermissionGranted -> Amber500
-                !isServiceLive -> Amber500
-                else -> Emerald500
-            }
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = bannerColor.copy(alpha = 0.15f)
-                )
-            ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = if (isFullyActive) Icons.Default.CheckCircle else Icons.Default.Warning,
-                            contentDescription = null,
-                            tint = bannerColor,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = when {
-                                    !isPermissionGranted -> "Notification Access Required"
-                                    !isServiceLive -> "Service Listener Terputus (Android)"
-                                    else -> "Notification Scraper Aktif & Terhubung"
-                                },
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = bannerColor
-                            )
-                            Text(
-                                text = when {
-                                    !isPermissionGranted ->
-                                        "Aktifkan 'Akses Notifikasi' agar aplikasi dapat mendeteksi transaksi otomatis di background."
-                                    !isServiceLive ->
-                                        "Android memutuskan koneksi background listener (umum terjadi setelah update dari Android Studio). Tekan 'Sambung Ulang' atau matikan lalu hidupkan kembali saklar di Pengaturan HP."
-                                    else ->
-                                        "Service terhubung ke Android OS dan siap mendeteksi transaksi GoPay, ShopeePay, OVO, Bank BNI, dan Bank CIMB secara otomatis."
-                                },
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    if (!isPermissionGranted) {
-                        Button(
-                            onClick = { openNotificationAccessSettings(context) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Amber500)
-                        ) {
-                            Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Buka Pengaturan Akses Notifikasi", fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-                    } else if (!isServiceLive) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = {
-                                    com.dave.moneymanager.service.MoneyNotificationListenerService.forceReconnect(context)
-                                    android.widget.Toast.makeText(context, "Memicu sambung ulang service...", android.widget.Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Amber500)
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("⚡ Paksa Sambung Ulang Service", fontWeight = FontWeight.Bold, color = Color.White)
-                            }
-
-                            OutlinedButton(
-                                onClick = { openNotificationAccessSettings(context) },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Buka Pengaturan Akses Notifikasi (Toggle Saklar)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = {
-                                com.dave.moneymanager.service.MoneyNotificationListenerService.forceReconnect(context)
-                                android.widget.Toast.makeText(context, "Service di-refresh!", android.widget.Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Refresh Listener Connection", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                )
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        text = "💡 Panduan Agar Notifikasi Tidak Dimatikan Android:",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "• Setel Penggunaan Baterai aplikasi ini ke \"Tidak Dibatasi / Unrestricted\".\n" +
-                                "• Untuk HP Xiaomi/Samsung/Oppo/Vivo: Aktifkan izin \"Mulai Otomatis / Autostart\".\n" +
-                                "• Jika baru update via Android Studio, selalu cek banner di atas bertuliskan \"Aktif & Terhubung\".",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                            fontSize = 11.sp
-                        )
-                    )
-                }
-            }
-        }
-
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(18.dp)) {
-                    Text(
-                        text = "Supported Applications",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    AppSupportBadge(
-                        appName = "Bank BNI / wondr by BNI",
-                        pkg = "src.bni.mbanking, id.co.bni.wondr",
-                        color = ColorBNI
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AppSupportBadge(
-                        appName = "Bank CIMB Niaga (OCTO Mobile)",
-                        pkg = "com.cimbniaga.octomobile",
-                        color = ColorCIMB
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AppSupportBadge(
-                        appName = "OctoPay (E-Money CIMB)",
-                        pkg = "com.cimbniaga.octomobile (notif OctoPay / QRIS)",
-                        color = ColorOctoPay
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AppSupportBadge(
-                        appName = "GoPay",
-                        pkg = "com.gojek.app, com.gojek.gopay",
-                        color = ColorGoPay
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AppSupportBadge(
-                        appName = "GoPay Clone (Dual Apps)",
-                        pkg = "Cloned package / parallel space / named 'GoPay'",
-                        color = ColorGoPayClone
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AppSupportBadge(
-                        appName = "ShopeePay",
-                        pkg = "com.shopee.id, com.shopeepay.id",
-                        color = ColorShopeePay
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AppSupportBadge(
-                        appName = "OVO",
-                        pkg = "ovo.id, com.ovo, Grab OVO",
-                        color = ColorOVO
-                    )
-                }
-            }
-        }
-
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -342,7 +127,7 @@ fun AutoScraperScreen(viewModel: MoneyViewModel) {
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Transaksi yang terdeteksi otomatis dari notifikasi GoPay, ShopeePay, OVO, BNI, dan CIMB akan otomatis dicatat dan ditampilkan di sini.",
+                            text = "Transaksi yang terdeteksi otomatis dari notifikasi GoPay, ShopeePay, OVO, BNI, CIMB, dan myBCA akan otomatis dicatat dan ditampilkan di sini.",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             ),
@@ -355,32 +140,6 @@ fun AutoScraperScreen(viewModel: MoneyViewModel) {
             items(processedLogs) { log ->
                 ScrapedLogItem(log = log, formatRupiah = { viewModel.formatRupiah(it) })
             }
-        }
-    }
-}
-
-@Composable
-private fun AppSupportBadge(appName: String, pkg: String, color: Color) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        Column {
-            Text(text = appName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-            Text(
-                text = pkg,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    fontSize = 10.sp
-                )
-            )
         }
     }
 }
@@ -464,7 +223,7 @@ private fun ScrapedLogItem(log: ScrapedNotificationLog, formatRupiah: (Double) -
                 if (!log.destination.isNullOrEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "🎯 Destination/Source: ${log.destination}",
+                        text = "Destination/Source: ${log.destination}",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = Emerald500
@@ -479,16 +238,4 @@ private fun ScrapedLogItem(log: ScrapedNotificationLog, formatRupiah: (Double) -
 private fun checkNotificationPermission(context: Context): Boolean {
     val enabledListeners = NotificationManagerCompat.getEnabledListenerPackages(context)
     return enabledListeners.contains(context.packageName)
-}
-
-private fun openNotificationAccessSettings(context: Context) {
-    try {
-        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        val fallback = Intent(Settings.ACTION_SETTINGS)
-        fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(fallback)
-    }
 }

@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Church
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FamilyRestroom
 import androidx.compose.material.icons.filled.Fastfood
@@ -45,19 +46,24 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Flight
+import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalAtm
 import androidx.compose.material.icons.filled.LocalCafe
+import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.PriceCheck
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.VolunteerActivism
@@ -1596,13 +1602,19 @@ fun getCategoryIcon(iconKey: String, categoryName: String = "", isExpense: Boole
     val key = iconKey.lowercase().trim()
     val name = categoryName.lowercase().trim()
     return when {
-        key == "shield" || name.contains("shield") -> Icons.Default.Shield
+        key == "shield" || name.contains("shield") || name.contains("talangan") -> Icons.Default.Shield
+        key in listOf("debt", "hutang", "utang", "pinjaman") || name.contains("debt") || name.contains("hutang") || name.contains("utang") -> Icons.Default.Handshake
         key == "church" || name.contains("church") || name.contains("gereja") -> Icons.Default.Church
         key in listOf("love", "heart", "with_her") || name.contains("with her") || name.contains("love") || name.contains("pacar") -> Icons.Default.Favorite
-        key == "food" || name.contains("food") || name.contains("makan") || name.contains("dining") -> Icons.Default.Fastfood
+        key == "food" || name.contains("food") || name.contains("makan") || name.contains("dining") || name.contains("dapur") || name.contains("dapoer") -> Icons.Default.Fastfood
         key == "shopping" || name.contains("shop") || name.contains("belanja") -> Icons.Default.ShoppingBag
         key == "transport" || name.contains("transport") || name.contains("kendaraan") -> Icons.Default.DirectionsCar
+        key in listOf("fuel", "bensin", "spbu") || name.contains("bensin") || name.contains("fuel") || name.contains("spbu") -> Icons.Default.LocalGasStation
         key == "bills" || name.contains("bill") || name.contains("tagihan") || name.contains("utilit") -> Icons.Default.Receipt
+        key in listOf("game", "gaming", "games") || name.contains("game") -> Icons.Default.SportsEsports
+        key in listOf("music", "musik") || name.contains("music") || name.contains("musik") -> Icons.Default.MusicNote
+        key in listOf("tech", "gadget", "elektronik") || name.contains("gadget") || name.contains("tech") || name.contains("elektronik") -> Icons.Default.Devices
+        key in listOf("saving", "savings", "tabungan") || name.contains("tabung") || name.contains("saving") -> Icons.Default.Savings
         key == "entertainment" || name.contains("entertain") || name.contains("hiburan") || name.contains("movie") -> Icons.Default.Movie
         key == "health" || name.contains("health") || name.contains("sehat") || name.contains("obat") -> Icons.Default.LocalHospital
         key == "education" || name.contains("educat") || name.contains("pendidikan") || name.contains("sekolah") || name.contains("kuliah") -> Icons.Default.School
@@ -1620,6 +1632,7 @@ fun getCategoryIcon(iconKey: String, categoryName: String = "", isExpense: Boole
         key == "family" || name.contains("family") || name.contains("keluarga") -> Icons.Default.FamilyRestroom
         key in listOf("donation", "charity") || name.contains("charity") || name.contains("donasi") || name.contains("amal") || name.contains("sedekah") -> Icons.Default.VolunteerActivism
         key == "coffee" || name.contains("coffee") || name.contains("kopi") -> Icons.Default.LocalCafe
+        key in listOf("other", "category", "lainnya", "lain") || name.contains("other") || name.contains("lainnya") || name.contains("lain") -> Icons.Default.Category
         else -> if (isExpense) Icons.Default.Receipt else Icons.Default.LocalAtm
     }
 }

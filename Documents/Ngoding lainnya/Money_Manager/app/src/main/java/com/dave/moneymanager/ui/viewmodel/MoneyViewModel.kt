@@ -9,6 +9,7 @@ import com.dave.moneymanager.data.model.Budget
 import com.dave.moneymanager.data.model.BudgetAlertData
 import com.dave.moneymanager.data.model.CategoryBudgetStatus
 import com.dave.moneymanager.data.model.FilterOptions
+import com.dave.moneymanager.data.model.MyDebtEntry
 import com.dave.moneymanager.data.model.ScrapedNotificationLog
 import com.dave.moneymanager.data.model.ShieldContact
 import com.dave.moneymanager.data.model.ShieldEntry
@@ -69,6 +70,7 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
     val shields: StateFlow<List<ShieldEntry>> = repository.shields
     val shieldHistories: StateFlow<List<ShieldHistoryItem>> = repository.shieldHistories
     val shieldContacts: StateFlow<List<ShieldContact>> = repository.shieldContacts
+    val myDebts: StateFlow<List<MyDebtEntry>> = repository.myDebts
     val transactionEditHistories: StateFlow<Map<Long, List<TransactionEditHistory>>> = repository.transactionEditHistories
 
     val totalUnsettledShieldAmount: StateFlow<Double> = shields.map { list ->
@@ -80,6 +82,18 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val totalSettledShieldAmount: StateFlow<Double> = shields.map { list ->
+        list.filter { it.isSettled }.sumOf { it.amount }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val totalUnsettledMyDebtAmount: StateFlow<Double> = myDebts.map { list ->
+        list.filter { !it.isSettled }.sumOf { it.amount }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val unsettledMyDebtCount: StateFlow<Int> = myDebts.map { list ->
+        list.count { !it.isSettled }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val totalSettledMyDebtAmount: StateFlow<Double> = myDebts.map { list ->
         list.filter { it.isSettled }.sumOf { it.amount }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
@@ -967,6 +981,61 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
     fun updateShieldAvatar(shieldId: Long, friendName: String, avatarUri: String?) {
         viewModelScope.launch {
             repository.updateShieldAvatar(shieldId, friendName, avatarUri)
+        }
+    }
+
+    fun addMyDebt(
+        personName: String,
+        amount: Double,
+        note: String = "",
+        timestamp: Long = System.currentTimeMillis(),
+        avatarUri: String? = null
+    ) {
+        viewModelScope.launch {
+            repository.addMyDebt(
+                MyDebtEntry(
+                    personName = personName.trim(),
+                    amount = amount,
+                    note = note.trim(),
+                    timestamp = timestamp,
+                    avatarUri = avatarUri
+                )
+            )
+        }
+    }
+
+    fun updateMyDebt(entry: MyDebtEntry) {
+        viewModelScope.launch {
+            repository.updateMyDebt(entry)
+        }
+    }
+
+    fun deleteMyDebt(debtId: Long) {
+        viewModelScope.launch {
+            repository.deleteMyDebt(debtId)
+        }
+    }
+
+    fun settleMyDebt(
+        debtId: Long,
+        bankId: Long? = null,
+        bankName: String? = null,
+        deductWallet: Boolean = true
+    ) {
+        viewModelScope.launch {
+            repository.settleMyDebt(debtId, bankId, bankName, deductWallet)
+        }
+    }
+
+    fun unsettleMyDebt(debtId: Long) {
+        viewModelScope.launch {
+            repository.unsettleMyDebt(debtId)
+        }
+    }
+
+    fun updateMyDebtAvatar(debtId: Long, personName: String, avatarUri: String?) {
+        viewModelScope.launch {
+            repository.updateMyDebtAvatar(debtId, personName, avatarUri)
         }
     }
 
