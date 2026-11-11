@@ -130,7 +130,7 @@ fun TransactionsScreen(viewModel: MoneyViewModel) {
                     )
                     Text(
                         text = "Reset Filters",
-                        color = Color(0xFFEF4444),
+                        color = Rose500,
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         modifier = Modifier
                             .clickable { viewModel.resetFilters() }
@@ -482,8 +482,8 @@ fun TransactionsScreen(viewModel: MoneyViewModel) {
         val isTransfer = tx.type == Transaction.TYPE_TRANSFER
         val typeLabel = when {
             isTransfer -> "Transfer"
-            isIncome -> "Pemasukan"
-            else -> "Pengeluaran"
+            isIncome -> "Income"
+            else -> "Expense"
         }
 
         AlertDialog(
@@ -498,7 +498,7 @@ fun TransactionsScreen(viewModel: MoneyViewModel) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Hapus Riwayat Transaksi",
+                        text = "Delete Transaction",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -506,7 +506,7 @@ fun TransactionsScreen(viewModel: MoneyViewModel) {
             text = {
                 Column {
                     Text(
-                        text = "Apakah Anda yakin ingin menghapus transaksi ini?",
+                        text = "Are you sure you want to delete this transaction?",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -543,7 +543,7 @@ fun TransactionsScreen(viewModel: MoneyViewModel) {
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Saldo akun serta total pemasukan & pengeluaran di dashboard akan diperbarui otomatis.",
+                        text = "Wallet balances and monthly totals will be recalculated automatically.",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -559,12 +559,12 @@ fun TransactionsScreen(viewModel: MoneyViewModel) {
                     colors = ButtonDefaults.buttonColors(containerColor = Rose500),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Hapus", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Delete", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { transactionToDelete = null }) {
-                    Text("Batal")
+                    Text("Cancel")
                 }
             }
         )

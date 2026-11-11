@@ -237,7 +237,12 @@ fun AddTransactionDialog(
         mutableStateOf(transactionToEdit?.destination ?: "")
     }
     var note by remember {
-        mutableStateOf(transactionToEdit?.note ?: "")
+        val rawNote = transactionToEdit?.note ?: ""
+        val cleaned = rawNote
+            .replace(Regex("""(?i)\s*•\s*(?:Kasir|Cashier|Total):\s*Rp\s*[\d,.]+(?:\s*\([^)]*\))?"""), "")
+            .replace(Regex("""(?i)^(?:Kasir|Cashier|Total):\s*Rp\s*[\d,.]+(?:\s*\([^)]*\))?"""), "")
+            .trim()
+        mutableStateOf(cleaned)
     }
 
     var selectedBank by remember {
@@ -336,6 +341,7 @@ fun AddTransactionDialog(
     val hasLinkedShields = linkedHistories.isNotEmpty() || linkedShields.isNotEmpty() ||
             (transactionToEdit != null && (
                 transactionToEdit.note.contains("Ditalangi Shield", ignoreCase = true) ||
+                transactionToEdit.note.contains("Shielded", ignoreCase = true) ||
                 transactionToEdit.category.equals("Shield", ignoreCase = true)
             ))
 
@@ -371,7 +377,7 @@ fun AddTransactionDialog(
                     )
                 }
             } else if (transactionToEdit != null && transactionToEdit.note.isNotBlank()) {
-                val shieldRegex = Regex("""Ditalangi(?:\s*Shield)?(?:\s*:)?\s*Rp\s*([\d,.]+)""", RegexOption.IGNORE_CASE)
+                val shieldRegex = Regex("""(?:Ditalangi(?:\s*Shield)?|Shielded)(?:\s*:)?\s*Rp\s*([\d,.]+)""", RegexOption.IGNORE_CASE)
                 val match = shieldRegex.find(transactionToEdit.note)
                 val rawNum = match?.groupValues?.get(1)?.replace(",", "")?.replace(".", "")
                 val amt = rawNum?.toDoubleOrNull()
@@ -379,7 +385,7 @@ fun AddTransactionDialog(
                     listOf(
                         FriendShieldDraft(
                             id = 1L,
-                            name = "Teman (Shield)",
+                            name = "Friend (Shield)",
                             amountText = if (amt % 1.0 == 0.0) amt.toLong().toString() else amt.toString(),
                             note = ""
                         )
@@ -617,7 +623,7 @@ fun AddTransactionDialog(
                         IconButton(onClick = { showCalculator = true }) {
                             Icon(
                                 imageVector = Icons.Default.Calculate,
-                                contentDescription = "Buka Kalkulator",
+                                contentDescription = "Open Calculator",
                                 tint = Emerald500
                             )
                         }
@@ -634,14 +640,14 @@ fun AddTransactionDialog(
                 val isTsf = selectedType == Transaction.TYPE_TRANSFER
 
                 val bankLabel = when {
-                    isTsf -> "Dari Wallet / Akun Asal *"
-                    isExp -> "Keluar dari Wallet / Akun *"
-                    else -> "Masuk ke Wallet / Akun *"
+                    isTsf -> "From Source Wallet / Account *"
+                    isExp -> "Paid From Wallet / Account *"
+                    else -> "Deposit To Wallet / Account *"
                 }
                 val bankPlaceholder = when {
-                    isTsf -> "Pilih wallet sumber transfer"
-                    isExp -> "Pilih wallet asal pengeluaran"
-                    else -> "Pilih wallet tujuan pemasukan"
+                    isTsf -> "Select source wallet for transfer"
+                    isExp -> "Select wallet for this expense"
+                    else -> "Select wallet for this income"
                 }
 
                 ExposedDropdownMenuBox(
@@ -656,7 +662,7 @@ fun AddTransactionDialog(
                         placeholder = { Text(bankPlaceholder) },
                         isError = bankSelectionError,
                         supportingText = if (bankSelectionError) {
-                            { Text("Silakan pilih wallet terlebih dahulu!", color = Rose500) }
+                            { Text("Please select a wallet first!", color = Rose500) }
                         } else null,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bankDropdownExpanded) },
                         modifier = Modifier
@@ -703,11 +709,11 @@ fun AddTransactionDialog(
                             value = selectedTargetBank?.name ?: "",
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Ke Wallet / Akun Tujuan *") },
-                            placeholder = { Text("Pilih wallet tujuan penerima transfer") },
+                            label = { Text("To Destination Wallet / Account *") },
+                            placeholder = { Text("Select destination wallet for transfer") },
                             isError = targetBankSelectionError,
                             supportingText = if (targetBankSelectionError) {
-                                { Text("Silakan pilih wallet tujuan transfer!", color = Rose500) }
+                                { Text("Please select a destination wallet!", color = Rose500) }
                             } else null,
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = targetBankDropdownExpanded) },
                             modifier = Modifier
@@ -722,7 +728,7 @@ fun AddTransactionDialog(
                             val availableTargets = banks.filter { it.id != selectedBank?.id }
                             if (availableTargets.isEmpty()) {
                                 DropdownMenuItem(
-                                    text = { Text("Tidak ada wallet lain untuk transfer", style = MaterialTheme.typography.bodySmall) },
+                                    text = { Text("No other wallets available for transfer", style = MaterialTheme.typography.bodySmall) },
                                     onClick = { targetBankDropdownExpanded = false }
                                 )
                             } else {
@@ -766,7 +772,7 @@ fun AddTransactionDialog(
                             if (onUpdateCategory != null) {
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "(Tahan untuk edit)",
+                                    text = "(Long-press to edit)",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                         fontSize = 11.sp
@@ -790,7 +796,7 @@ fun AddTransactionDialog(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "+ Kategori",
+                                    text = "+ Category",
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         color = Emerald500,
                                         fontWeight = FontWeight.Bold
@@ -874,7 +880,7 @@ fun AddTransactionDialog(
                                     )
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
-                                        text = "Kategori Baru",
+                                        text = "New Category",
                                         style = MaterialTheme.typography.labelMedium.copy(
                                             color = Emerald500,
                                             fontWeight = FontWeight.SemiBold
@@ -890,12 +896,12 @@ fun AddTransactionDialog(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 val destLabel = when {
-                    isTsf -> "Penerima / Keterangan Transfer (Opsional)"
+                    isTsf -> "Recipient / Transfer Note (Optional)"
                     isExp -> "Destination / Merchant / Recipient (Optional)"
                     else -> "From / Sender (Optional)"
                 }
                 val destPlaceholder = when {
-                    isTsf -> "e.g. Pembayaran, Tabungan, atau Nama Penerima"
+                    isTsf -> "e.g. Savings, Bill payment, or Recipient name"
                     isExp -> "e.g. Starbucks, Indomaret, John"
                     else -> "e.g. Company Payroll, John Doe"
                 }
@@ -915,7 +921,7 @@ fun AddTransactionDialog(
                     value = note,
                     onValueChange = { note = it },
                     label = { Text("Note / Description (Optional)") },
-                    placeholder = { Text("e.g. Team lunch celebration\n(Bisa enter untuk baris baru)") },
+                    placeholder = { Text("e.g. Team lunch celebration\n(Press Enter for a new line)") },
                     singleLine = false,
                     minLines = 3,
                     maxLines = 6,
@@ -966,11 +972,11 @@ fun AddTransactionDialog(
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Column {
                                         Text(
-                                            text = "Shield (Talangan Teman)",
+                                            text = "Shield (Split Bill / Covered for Friends)",
                                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                         )
                                         Text(
-                                            text = "Bayarin temanmu dulu? Lacak hutang mereka di Shield Tracker.",
+                                            text = "Paying for friends upfront? Track what they owe you in Shield Tracker.",
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                                 fontSize = 11.sp
@@ -1031,7 +1037,7 @@ fun AddTransactionDialog(
                                                 )
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Text(
-                                                    text = "Pilih dari Kontak yang Pernah Shield",
+                                                    text = "Select from Saved Shield Contacts",
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.SemiBold,
                                                     color = Emerald500
@@ -1072,7 +1078,7 @@ fun AddTransactionDialog(
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
                                                     Text(
-                                                        text = "Alokasi Cepat Shield:",
+                                                        text = "Quick Split Allocation:",
                                                         style = MaterialTheme.typography.labelSmall.copy(
                                                             fontWeight = FontWeight.Bold,
                                                             color = MaterialTheme.colorScheme.onSurface
@@ -1118,7 +1124,7 @@ fun AddTransactionDialog(
                                                                     f.copy(amountText = amt.toString())
                                                                 }
                                                             }
-                                                            Toast.makeText(context, "100% Pengeluaran dijadikan Shield!", Toast.LENGTH_SHORT).show()
+                                                            Toast.makeText(context, "100% allocated to Shield!", Toast.LENGTH_SHORT).show()
                                                         },
                                                     shape = RoundedCornerShape(8.dp),
                                                     color = Emerald500.copy(alpha = 0.15f),
@@ -1137,7 +1143,7 @@ fun AddTransactionDialog(
                                                         )
                                                         Spacer(modifier = Modifier.width(4.dp))
                                                         Text(
-                                                            text = "Semua (100%)",
+                                                            text = "All (100%)",
                                                             fontSize = 11.sp,
                                                             fontWeight = FontWeight.Bold,
                                                             color = Emerald500
@@ -1154,7 +1160,7 @@ fun AddTransactionDialog(
                                                             friendShieldList = friendShieldList.map { f ->
                                                                 f.copy(amountText = perPerson.toString())
                                                             }
-                                                            Toast.makeText(context, "Sebagian dijadikan Shield (Bagi Rata)", Toast.LENGTH_SHORT).show()
+                                                            Toast.makeText(context, "Split equally with you!", Toast.LENGTH_SHORT).show()
                                                         },
                                                     shape = RoundedCornerShape(8.dp),
                                                     color = Blue500.copy(alpha = 0.15f),
@@ -1173,7 +1179,7 @@ fun AddTransactionDialog(
                                                         )
                                                         Spacer(modifier = Modifier.width(4.dp))
                                                         Text(
-                                                            text = if (friendShieldList.size > 1) "Bagi Rata (+Saya)" else "Bagi 50:50",
+                                                            text = if (friendShieldList.size > 1) "Split Evenly (+Me)" else "Split 50:50",
                                                             fontSize = 11.sp,
                                                             fontWeight = FontWeight.Bold,
                                                             color = Blue500
@@ -1228,7 +1234,7 @@ fun AddTransactionDialog(
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
                                                     Text(
-                                                        text = "Teman #${index + 1}",
+                                                        text = "Friend #${index + 1}",
                                                         style = MaterialTheme.typography.labelMedium.copy(
                                                             fontWeight = FontWeight.Bold,
                                                             color = Emerald500
@@ -1243,7 +1249,7 @@ fun AddTransactionDialog(
                                                         ) {
                                                             Icon(
                                                                 imageVector = Icons.Default.Close,
-                                                                contentDescription = "Hapus",
+                                                                contentDescription = "Remove",
                                                                 tint = Rose500,
                                                                 modifier = Modifier.size(16.dp)
                                                             )
@@ -1264,7 +1270,7 @@ fun AddTransactionDialog(
                                                                 it[index] = draft.copy(name = newName)
                                                             }
                                                         },
-                                                        label = { Text("Nama Teman") },
+                                                        label = { Text("Friend Name") },
                                                         placeholder = { Text("e.g. Budi") },
                                                         singleLine = true,
                                                         trailingIcon = if (shieldContacts.isNotEmpty()) {
@@ -1275,7 +1281,7 @@ fun AddTransactionDialog(
                                                                 }) {
                                                                     Icon(
                                                                         imageVector = Icons.Default.PersonSearch,
-                                                                        contentDescription = "Cari Kontak",
+                                                                        contentDescription = "Search Contact",
                                                                         tint = Emerald500,
                                                                         modifier = Modifier.size(18.dp)
                                                                     )
@@ -1295,14 +1301,14 @@ fun AddTransactionDialog(
                                                                 }
                                                             }
                                                         },
-                                                        label = { Text("Hutang (Rp)") },
+                                                        label = { Text("Share (Rp)") },
                                                         placeholder = { Text("0") },
                                                         singleLine = true,
                                                         trailingIcon = {
                                                             IconButton(onClick = {
                                                                 friendCalcTargetId = draft.id
                                                             }) {
-                                                                Icon(Icons.Default.Calculate, contentDescription = "Hitung", tint = Emerald500, modifier = Modifier.size(18.dp))
+                                                                Icon(Icons.Default.Calculate, contentDescription = "Calculate", tint = Emerald500, modifier = Modifier.size(18.dp))
                                                             }
                                                         },
                                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -1322,7 +1328,7 @@ fun AddTransactionDialog(
                                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                                     ) {
                                                         if (remainingForThisFriend > 0 && remainingForThisFriend != (draft.amountText.toDoubleOrNull() ?: 0.0)) {
-                                                            val label = if (curOtherSum == 0.0) "Semua: Rp ${fmt.format(remainingForThisFriend.toLong())}" else "Sisa: Rp ${fmt.format(remainingForThisFriend.toLong())}"
+                                                            val label = if (curOtherSum == 0.0) "All: Rp ${fmt.format(remainingForThisFriend.toLong())}" else "Remainder: Rp ${fmt.format(remainingForThisFriend.toLong())}"
                                                             Surface(
                                                                 modifier = Modifier.clickable {
                                                                     val amtStr = if (remainingForThisFriend % 1.0 == 0.0) remainingForThisFriend.toLong().toString() else remainingForThisFriend.toString()
@@ -1383,21 +1389,21 @@ fun AddTransactionDialog(
                                                         ) {
                                                             Column(modifier = Modifier.weight(1f)) {
                                                                 Text(
-                                                                    text = "Nama '${draft.name}' sama dengan Teman #${duplicateMatchIndex + 1}",
+                                                                    text = "'${draft.name}' matches Friend #${duplicateMatchIndex + 1}",
                                                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Amber500)
                                                                 )
                                                                 Text(
-                                                                    text = "Nominal langsung digabungkan ke Teman #${duplicateMatchIndex + 1} tanpa kolom baru.",
+                                                                    text = "Amounts will be merged automatically into Friend #${duplicateMatchIndex + 1}.",
                                                                     style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 10.sp)
                                                                 )
                                                             }
                                                             TextButton(
                                                                 onClick = {
                                                                     friendShieldList = mergeDuplicateFriends(friendShieldList)
-                                                                    Toast.makeText(context, "Nominal digabungkan ke Teman #${duplicateMatchIndex + 1}!", Toast.LENGTH_SHORT).show()
+                                                                    Toast.makeText(context, "Merged into Friend #${duplicateMatchIndex + 1}!", Toast.LENGTH_SHORT).show()
                                                                 }
                                                             ) {
-                                                                Text("Gabung", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Amber500)
+                                                                Text("Merge", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Amber500)
                                                             }
                                                         }
                                                     }
@@ -1412,8 +1418,8 @@ fun AddTransactionDialog(
                                                             it[index] = draft.copy(note = newNote)
                                                         }
                                                     },
-                                                    label = { Text("Pesanan / Menu (Opsional)") },
-                                                    placeholder = { Text("e.g. Nasi Goreng + Es Teh") },
+                                                    label = { Text("Items / Order (Optional)") },
+                                                    placeholder = { Text("e.g. Fried Rice + Iced Tea") },
                                                     singleLine = true,
                                                     modifier = Modifier.fillMaxWidth(),
                                                     shape = RoundedCornerShape(10.dp)
@@ -1421,7 +1427,7 @@ fun AddTransactionDialog(
 
                                                 Spacer(modifier = Modifier.height(10.dp))
                                                 Text(
-                                                    text = "Status Pembayaran Teman:",
+                                                    text = "Friend's Payment Status:",
                                                     style = MaterialTheme.typography.labelSmall.copy(
                                                         fontWeight = FontWeight.Bold,
                                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
@@ -1460,7 +1466,7 @@ fun AddTransactionDialog(
                                                             )
                                                             Spacer(modifier = Modifier.width(4.dp))
                                                             Text(
-                                                                text = "Belum Bayar",
+                                                                text = "Unpaid",
                                                                 fontSize = 11.sp,
                                                                 fontWeight = if (isUnpaid) FontWeight.Bold else FontWeight.Medium,
                                                                 color = if (isUnpaid) Amber500 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -1497,7 +1503,7 @@ fun AddTransactionDialog(
                                                             )
                                                             Spacer(modifier = Modifier.width(4.dp))
                                                             Text(
-                                                                text = "Sudah Lunas",
+                                                                text = "Paid Full",
                                                                 fontSize = 11.sp,
                                                                 fontWeight = if (isPaid) FontWeight.Bold else FontWeight.Medium,
                                                                 color = if (isPaid) Emerald500 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -1534,7 +1540,7 @@ fun AddTransactionDialog(
                                                             )
                                                             Spacer(modifier = Modifier.width(4.dp))
                                                             Text(
-                                                                text = "Bayar Sebagian",
+                                                                text = "Partial",
                                                                 fontSize = 11.sp,
                                                                 fontWeight = if (isPartial) FontWeight.Bold else FontWeight.Medium,
                                                                 color = if (isPartial) Blue500 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -1558,7 +1564,7 @@ fun AddTransactionDialog(
                                                                 Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Emerald500, modifier = Modifier.size(16.dp))
                                                                 Spacer(modifier = Modifier.width(6.dp))
                                                                 Text(
-                                                                    text = "${draft.name.ifBlank { "Teman" }} langsung melunasi Rp ${formatter.format(fAmt)}",
+                                                                    text = "${draft.name.ifBlank { "Friend" }} settled Rp ${formatter.format(fAmt)} immediately",
                                                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Emerald500)
                                                                 )
                                                             }
@@ -1594,7 +1600,7 @@ fun AddTransactionDialog(
                                                                             modifier = Modifier.size(18.dp)
                                                                         )
                                                                         Spacer(modifier = Modifier.width(4.dp))
-                                                                        Text("Ditransfer (Pemasukan)", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                                                        Text("Transferred (Income)", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                                                     }
                                                                 }
 
@@ -1625,7 +1631,7 @@ fun AddTransactionDialog(
                                                                             modifier = Modifier.size(18.dp)
                                                                         )
                                                                         Spacer(modifier = Modifier.width(4.dp))
-                                                                        Text("Tunai / Tanpa Catat", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                                                        Text("Cash / No Wallet Entry", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                                                     }
                                                                 }
                                                             }
@@ -1640,10 +1646,10 @@ fun AddTransactionDialog(
                                                                     onExpandedChange = { bankExpanded = !bankExpanded }
                                                                 ) {
                                                                     OutlinedTextField(
-                                                                        value = curBank?.name ?: "Pilih Rekening",
+                                                                        value = curBank?.name ?: "Select Wallet",
                                                                         onValueChange = {},
                                                                         readOnly = true,
-                                                                        label = { Text("Rekening Penerima", fontSize = 10.sp) },
+                                                                        label = { Text("Receiving Wallet", fontSize = 10.sp) },
                                                                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bankExpanded) },
                                                                         modifier = Modifier
                                                                             .fillMaxWidth()
@@ -1695,13 +1701,13 @@ fun AddTransactionDialog(
                                                                     Icon(Icons.Default.Payments, contentDescription = null, tint = Blue500, modifier = Modifier.size(16.dp))
                                                                     Spacer(modifier = Modifier.width(6.dp))
                                                                     Text(
-                                                                        text = "Bayar Sebagian Saat Transaksi",
+                                                                        text = "Partial Payment Upfront",
                                                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Blue500)
                                                                     )
                                                                 }
                                                                 if (totalFriendAmt > 0 && paidAmt > 0) {
                                                                     Text(
-                                                                        text = "Sisa: Rp ${formatter.format(remainingAmt)}",
+                                                                        text = "Remaining: Rp ${formatter.format(remainingAmt)}",
                                                                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Rose500)
                                                                     )
                                                                 }
@@ -1716,12 +1722,12 @@ fun AddTransactionDialog(
                                                                         }
                                                                     }
                                                                 },
-                                                                label = { Text("Nominal yang Sudah Dibayar (Rp)") },
+                                                                label = { Text("Amount Paid Upfront (Rp)") },
                                                                 placeholder = { Text("0") },
                                                                 singleLine = true,
                                                                 trailingIcon = {
                                                                     IconButton(onClick = { friendPartialCalcTargetId = draft.id }) {
-                                                                        Icon(Icons.Default.Calculate, contentDescription = "Hitung", tint = Blue500, modifier = Modifier.size(18.dp))
+                                                                        Icon(Icons.Default.Calculate, contentDescription = "Calculate", tint = Blue500, modifier = Modifier.size(18.dp))
                                                                     }
                                                                 },
                                                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -1793,7 +1799,7 @@ fun AddTransactionDialog(
                                                                             modifier = Modifier.size(18.dp)
                                                                         )
                                                                         Spacer(modifier = Modifier.width(4.dp))
-                                                                        Text("Ditransfer (Pemasukan)", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                                                        Text("Transferred (Income)", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                                                     }
                                                                 }
 
@@ -1824,7 +1830,7 @@ fun AddTransactionDialog(
                                                                             modifier = Modifier.size(18.dp)
                                                                         )
                                                                         Spacer(modifier = Modifier.width(4.dp))
-                                                                        Text("Tunai / Tanpa Catat", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                                                        Text("Cash / No Wallet Entry", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                                                     }
                                                                 }
                                                             }
@@ -1839,10 +1845,10 @@ fun AddTransactionDialog(
                                                                     onExpandedChange = { bankExpanded = !bankExpanded }
                                                                 ) {
                                                                     OutlinedTextField(
-                                                                        value = curBank?.name ?: "Pilih Rekening",
+                                                                        value = curBank?.name ?: "Select Wallet",
                                                                         onValueChange = {},
                                                                         readOnly = true,
-                                                                        label = { Text("Rekening Penerima", fontSize = 10.sp) },
+                                                                        label = { Text("Receiving Wallet", fontSize = 10.sp) },
                                                                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bankExpanded) },
                                                                         modifier = Modifier
                                                                             .fillMaxWidth()
@@ -1894,7 +1900,7 @@ fun AddTransactionDialog(
                                     ) {
                                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("+ Tambah Teman Lain", fontWeight = FontWeight.SemiBold)
+                                        Text("+ Add Another Friend", fontWeight = FontWeight.SemiBold)
                                     }
 
                                     Box(
@@ -1910,14 +1916,14 @@ fun AddTransactionDialog(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 horizontalArrangement = Arrangement.SpaceBetween
                                             ) {
-                                                Text("Total Bayar di Kasir:", style = MaterialTheme.typography.labelSmall)
+                                                Text("Total Bill Paid:", style = MaterialTheme.typography.labelSmall)
                                                 Text("Rp ${formatter.format(totalBill)}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
                                             }
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 horizontalArrangement = Arrangement.SpaceBetween
                                             ) {
-                                                Text("Ditalangi Teman (Shield):", style = MaterialTheme.typography.labelSmall, color = Emerald500)
+                                                Text("Covered for Friends (Shield):", style = MaterialTheme.typography.labelSmall, color = Emerald500)
                                                 Text("- Rp ${formatter.format(totalShielded)}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, color = Emerald500)
                                             }
                                             if (totalPaidByFriends > 0) {
@@ -1925,14 +1931,14 @@ fun AddTransactionDialog(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     horizontalArrangement = Arrangement.SpaceBetween
                                                 ) {
-                                                    Text("• Langsung Dibayar / Lunas:", style = MaterialTheme.typography.labelSmall, color = Emerald500)
+                                                    Text("• Paid Upfront / Settled:", style = MaterialTheme.typography.labelSmall, color = Emerald500)
                                                     Text("Rp ${formatter.format(totalPaidByFriends)}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, color = Emerald500)
                                                 }
                                                 Row(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     horizontalArrangement = Arrangement.SpaceBetween
                                                 ) {
-                                                    Text("• Sisa Hutang Aktif:", style = MaterialTheme.typography.labelSmall, color = if (totalUnpaidByFriends > 0) Amber500 else Emerald500)
+                                                    Text("• Remaining Active Receivable:", style = MaterialTheme.typography.labelSmall, color = if (totalUnpaidByFriends > 0) Amber500 else Emerald500)
                                                     Text("Rp ${formatter.format(totalUnpaidByFriends)}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, color = if (totalUnpaidByFriends > 0) Amber500 else Emerald500)
                                                 }
                                             }
@@ -1940,14 +1946,14 @@ fun AddTransactionDialog(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 horizontalArrangement = Arrangement.SpaceBetween
                                             ) {
-                                                Text("Porsi Pribadi:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                                Text("Your Personal Share:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                                                 Text("Rp ${formatter.format(myShare)}", fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.labelSmall, color = if (myShare > 0) Rose500 else Emerald500)
                                             }
 
                                             if (totalBill > 0 && totalShielded > totalBill) {
                                                 Spacer(modifier = Modifier.height(2.dp))
                                                 Text(
-                                                    text = "⚠️ Total talangan melebihi total bayar di kasir!",
+                                                    text = "⚠️ Total friend shares exceed the total bill!",
                                                     color = Rose500,
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold
@@ -1973,7 +1979,7 @@ fun AddTransactionDialog(
                                                             )
                                                             Spacer(modifier = Modifier.width(6.dp))
                                                             Text(
-                                                                text = "Seluruh pengeluaran (100%) ditalangi sebagai Shield! (Porsi pribadi: Rp 0)",
+                                                                text = "100% of this bill is covered as Shield! (Personal share: Rp 0)",
                                                                 color = Emerald500,
                                                                 fontSize = 11.sp,
                                                                 fontWeight = FontWeight.Bold
@@ -1999,7 +2005,7 @@ fun AddTransactionDialog(
                                                             )
                                                             Spacer(modifier = Modifier.width(6.dp))
                                                             Text(
-                                                                text = "Sebagian pengeluaran (Rp ${formatter.format(totalShielded)}) ditalangi Shield, sisa Rp ${formatter.format(myShare)} porsi pribadi.",
+                                                                text = "Rp ${formatter.format(totalShielded)} allocated to Shield, Rp ${formatter.format(myShare)} personal share.",
                                                                 color = Blue500,
                                                                 fontSize = 11.sp,
                                                                 fontWeight = FontWeight.Bold
@@ -2010,14 +2016,14 @@ fun AddTransactionDialog(
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 if (totalPaidByFriends > 0) {
                                                     Text(
-                                                        text = "✓ Saldo dompet terpotong Rp ${formatter.format(totalBill)} untuk kasir. Sebesar Rp ${formatter.format(totalPaidByFriends)} dicatat lunas/reimburse, dan sisa Rp ${formatter.format(totalUnpaidByFriends)} dicatat sebagai hutang aktif di Shield Tracker.",
+                                                        text = "✓ Wallet deducted by Rp ${formatter.format(totalBill)}. Rp ${formatter.format(totalPaidByFriends)} recorded as settled/reimbursed, and Rp ${formatter.format(totalUnpaidByFriends)} tracked in Shield Tracker.",
                                                         color = Emerald500,
                                                         fontSize = 11.sp,
                                                         fontWeight = FontWeight.Medium
                                                     )
                                                 } else {
                                                     Text(
-                                                        text = "✓ Saldo wallet terpotong sesuai total kasir (Rp ${formatter.format(totalBill)}). Saat teman melunasi di Shield Tracker, Anda dapat memilih opsi reimburse ke wallet.",
+                                                        text = "✓ Wallet deducted by total bill (Rp ${formatter.format(totalBill)}). When friends pay you back in Shield Tracker, you can reimburse your wallet.",
                                                         color = Emerald500,
                                                         fontSize = 11.sp,
                                                         fontWeight = FontWeight.Medium
@@ -2137,7 +2143,7 @@ fun AddTransactionDialog(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Histori Perubahan (${editHistories.size}x Diedit)",
+                                        text = "Edit History (${editHistories.size}x Edited)",
                                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Blue500)
                                     )
                                 }
@@ -2155,7 +2161,7 @@ fun AddTransactionDialog(
                                 val diffSign = if (isPositive) "+" else if (history.diffAmount < 0) "-" else ""
                                 val diffText = if (hasDiff) {
                                     "$diffSign Rp ${numFormat.format(abs(history.diffAmount))}"
-                                } else "Nominal Tetap"
+                                } else "Amount Unchanged"
 
                                 Card(
                                     modifier = Modifier
@@ -2227,7 +2233,7 @@ fun AddTransactionDialog(
                     onClick = {
                         val amount = amountText.toDoubleOrNull() ?: 0.0
                         if (amount <= 0.0) {
-                            Toast.makeText(context, "Silakan isi nominal harga terlebih dahulu!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Please enter a valid transaction amount!", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
 
@@ -2235,27 +2241,26 @@ fun AddTransactionDialog(
                             if (selectedBank == null) {
                                 bankSelectionError = true
                                 bankDropdownExpanded = true
-                                Toast.makeText(context, "Silakan pilih wallet asal transfer!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Please select a source wallet!", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
                             if (selectedTargetBank == null) {
                                 targetBankSelectionError = true
                                 targetBankDropdownExpanded = true
-                                Toast.makeText(context, "Silakan pilih wallet tujuan transfer!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Please select a destination wallet!", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
                             if (selectedBank?.id == selectedTargetBank?.id) {
-                                Toast.makeText(context, "Wallet asal dan wallet tujuan transfer tidak boleh sama!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Source and destination wallets cannot be the same!", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
                         } else {
                             if (selectedBank == null) {
                                 bankSelectionError = true
                                 bankDropdownExpanded = true
-                                val actionWord = if (selectedType == Transaction.TYPE_EXPENSE) "keluar dari" else "masuk ke"
                                 Toast.makeText(
                                     context,
-                                    "Silakan pilih wallet terlebih dahulu ($actionWord wallet mana)!",
+                                    "Please select a wallet first!",
                                     Toast.LENGTH_SHORT
                                 ).show()
                                 return@Button
@@ -2272,7 +2277,7 @@ fun AddTransactionDialog(
                         if (isShieldEnabled && isShieldEligible && totalShielded > amount) {
                             Toast.makeText(
                                 context,
-                                "Total talangan teman tidak boleh melebihi total tagihan kasir!",
+                                "Total friend shares cannot exceed the total bill!",
                                 Toast.LENGTH_SHORT
                             ).show()
                             return@Button
@@ -2286,7 +2291,7 @@ fun AddTransactionDialog(
                                     if (pAmt <= 0.0) {
                                         Toast.makeText(
                                             context,
-                                            "Nominal bayar sebagian untuk '${f.name}' harus lebih dari 0!",
+                                            "Partial payment amount for '${f.name}' must be greater than 0!",
                                             Toast.LENGTH_SHORT
                                         ).show()
                                         return@Button
@@ -2294,7 +2299,7 @@ fun AddTransactionDialog(
                                     if (pAmt >= fAmt) {
                                         Toast.makeText(
                                             context,
-                                            "Nominal bayar sebagian untuk '${f.name}' sama/melebihi total hutang. Silakan pilih 'Sudah Lunas'!",
+                                            "Partial payment for '${f.name}' equals or exceeds total share. Please select 'Paid Full'!",
                                             Toast.LENGTH_SHORT
                                         ).show()
                                         return@Button
@@ -2347,17 +2352,17 @@ fun AddTransactionDialog(
                         val totalUnpaidByFriends = (totalShielded - totalPaidByFriends).coerceAtLeast(0.0)
 
                         val cleanBaseNote = note
-                            .replace(Regex("""(?i)\s*•\s*Kasir:\s*Rp\s*[\d,.]+(?:\s*\([^)]*\))?"""), "")
-                            .replace(Regex("""(?i)^Kasir:\s*Rp\s*[\d,.]+(?:\s*\([^)]*\))?"""), "")
+                            .replace(Regex("""(?i)\s*•\s*(?:Kasir|Cashier|Total):\s*Rp\s*[\d,.]+(?:\s*\([^)]*\))?"""), "")
+                            .replace(Regex("""(?i)^(?:Kasir|Cashier|Total):\s*Rp\s*[\d,.]+(?:\s*\([^)]*\))?"""), "")
                             .trim()
 
                         val finalNote = if (isShieldEnabled && isShieldEligible && totalShielded > 0) {
                             val formatter = NumberFormat.getNumberInstance(Locale.US)
                             val statusSummary = if (totalPaidByFriends > 0) {
-                                if (totalUnpaidByFriends == 0.0) " (Lunas Langsung)"
-                                else " (Dibayar: Rp ${formatter.format(totalPaidByFriends)}, Sisa: Rp ${formatter.format(totalUnpaidByFriends)})"
+                                if (totalUnpaidByFriends == 0.0) " (Directly Settled)"
+                                else " (Paid: Rp ${formatter.format(totalPaidByFriends)}, Remaining: Rp ${formatter.format(totalUnpaidByFriends)})"
                             } else ""
-                            val shieldSummary = "Kasir: Rp ${formatter.format(amount)} (Ditalangi Shield: Rp ${formatter.format(totalShielded)}$statusSummary, Pribadi: Rp ${formatter.format(myShare)})"
+                            val shieldSummary = "Total: Rp ${formatter.format(amount)} (Shielded: Rp ${formatter.format(totalShielded)}$statusSummary, Personal: Rp ${formatter.format(myShare)})"
                             if (cleanBaseNote.isBlank()) shieldSummary else "$cleanBaseNote • $shieldSummary"
                         } else cleanBaseNote
 
@@ -2399,16 +2404,16 @@ fun AddTransactionDialog(
                     Text(
                         text = if (transactionToEdit == null) {
                             if (isShieldEnabled && isShieldEligible && totalBill > 0) {
-                                "Simpan Transaksi (Rp ${formatter.format(totalBill)})"
+                                "Save Transaction (Rp ${formatter.format(totalBill)})"
                             } else {
                                 "Save Transaction"
                             }
                         } else {
                             if (isShieldEnabled && isShieldEligible && curShielded > 0) {
                                 if (curShielded >= totalBill && totalBill > 0) {
-                                    "Simpan (100% Shield: Rp ${formatter.format(curShielded)})"
+                                    "Save (100% Shield: Rp ${formatter.format(curShielded)})"
                                 } else {
-                                    "Simpan (Sebagian Shield: Rp ${formatter.format(curShielded)})"
+                                    "Save (Partial Shield: Rp ${formatter.format(curShielded)})"
                                 }
                             } else {
                                 "Save Changes"

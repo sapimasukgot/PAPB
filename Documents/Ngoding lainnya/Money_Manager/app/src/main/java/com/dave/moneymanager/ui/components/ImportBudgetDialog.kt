@@ -157,7 +157,7 @@ fun ImportBudgetDialog(
                                 )
                             )
                             Text(
-                                text = "Salin dari bulan lalu ke $toMonthDisplay",
+                                text = "Copy from previous month to $toMonthDisplay",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                 )
@@ -200,7 +200,7 @@ fun ImportBudgetDialog(
                                 .padding(4.dp)
                         ) {
                             Text(
-                                text = if (selectedSourceMY == initialPrevMY) "Bulan Lalu" else "Bulan Sumber",
+                                text = if (selectedSourceMY == initialPrevMY) "Previous Month" else "Source Month",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.SemiBold
@@ -212,7 +212,7 @@ fun ImportBudgetDialog(
                             )
                             if (availableMonths.size > 1) {
                                 Text(
-                                    text = "Ubah sumber ▾",
+                                    text = "Change source ▾",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                         fontSize = 10.sp
@@ -229,7 +229,7 @@ fun ImportBudgetDialog(
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            text = viewModel.formatMonthYearDisplay(m) + if (m == initialPrevMY) " (Bulan Lalu)" else "",
+                                            text = viewModel.formatMonthYearDisplay(m) + if (m == initialPrevMY) " (Previous Month)" else "",
                                             fontWeight = if (m == selectedSourceMY) FontWeight.Bold else FontWeight.Normal
                                         )
                                     },
@@ -257,7 +257,7 @@ fun ImportBudgetDialog(
                             horizontalAlignment = Alignment.End
                         ) {
                             Text(
-                                text = "Bulan Tujuan",
+                                text = "Target Month",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = Emerald500,
                                     fontWeight = FontWeight.SemiBold
@@ -268,7 +268,7 @@ fun ImportBudgetDialog(
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
-                                text = "${currentBudgets.size} budget aktif",
+                                text = "${currentBudgets.size} active budgets",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                     fontSize = 10.sp
@@ -316,13 +316,13 @@ fun ImportBudgetDialog(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Tidak Ada Budget di $fromMonthDisplay",
+                                text = "No Budgets in $fromMonthDisplay",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 fontSize = 15.sp
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Bulan $fromMonthDisplay belum memiliki batas budget yang diset. Atur budget terlebih dahulu di bulan tersebut untuk dapat mengimpornya.",
+                                text = "$fromMonthDisplay has no budget limits set yet. Configure budgets in that month first to import them.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                                     lineHeight = 16.sp
@@ -333,7 +333,7 @@ fun ImportBudgetDialog(
                             if (availableMonths.isNotEmpty() && !availableMonths.contains(selectedSourceMY)) {
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Bulan lain yang memiliki budget:",
+                                    text = "Other months with budgets:",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
@@ -372,7 +372,7 @@ fun ImportBudgetDialog(
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text("Tutup", fontSize = 13.sp)
+                                    Text("Close", fontSize = 13.sp)
                                 }
 
                                 Button(
@@ -385,7 +385,7 @@ fun ImportBudgetDialog(
                                     shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Emerald500)
                                 ) {
-                                    Text("Buka $fromMonthDisplay", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    Text("Open $fromMonthDisplay", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -398,7 +398,7 @@ fun ImportBudgetDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Kategori Budget (${sourceBudgets.size})",
+                            text = "Budget Categories (${sourceBudgets.size})",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
@@ -426,7 +426,7 @@ fun ImportBudgetDialog(
                             val catObj = allCategories.find { it.name.equals(budget.category, ignoreCase = true) }
                                 ?: TransactionCategory.defaultExpenseCategories.find { it.name.equals(budget.category, ignoreCase = true) }
                             val icon = getCategoryIcon(catObj?.icon ?: "receipt", isExpense = true)
-                            val color = Color(catObj?.colorHex ?: 0xFF10B981)
+                            val color = Color(catObj?.colorHex ?: 0xFF059669L)
                             val isAlreadyInTarget = existingCategoriesInTarget.contains(budget.category.lowercase().trim())
 
                             Row(
@@ -484,7 +484,7 @@ fun ImportBudgetDialog(
                                         .padding(horizontal = 8.dp, vertical = 3.dp)
                                 ) {
                                     Text(
-                                        text = if (isAlreadyInTarget) "Update" else "Baru",
+                                        text = if (isAlreadyInTarget) "Update" else "New",
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             color = if (isAlreadyInTarget) Amber500 else Emerald500,
                                             fontWeight = FontWeight.Bold,
@@ -514,12 +514,12 @@ fun ImportBudgetDialog(
                             )
                             Column(modifier = Modifier.padding(end = 6.dp)) {
                                 Text(
-                                    text = "Timpa seluruh budget di $toMonthDisplay",
+                                    text = "Overwrite all budgets in $toMonthDisplay",
                                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
                                 )
                                 Text(
-                                    text = if (replaceAll) "Hapus budget yang ada dan buat persis seperti bulan lalu"
-                                    else "Gabungkan: perbarui kategori sama dan tambahkan yang baru",
+                                    text = if (replaceAll) "Replace existing budgets with an exact copy of the source month"
+                                    else "Merge: update matching categories and add new ones",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                                         fontSize = 10.sp
@@ -541,7 +541,7 @@ fun ImportBudgetDialog(
                             shape = RoundedCornerShape(12.dp),
                             enabled = !isImporting
                         ) {
-                            Text("Batal")
+                            Text("Cancel")
                         }
 
                         Button(
@@ -569,7 +569,7 @@ fun ImportBudgetDialog(
                                     strokeWidth = 2.dp
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Mengimpor...")
+                                Text("Importing...")
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.FileDownload,
@@ -577,7 +577,7 @@ fun ImportBudgetDialog(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Import (${sourceBudgets.size} Kategori)", fontWeight = FontWeight.Bold)
+                                Text("Import (${sourceBudgets.size} Categories)", fontWeight = FontWeight.Bold)
                             }
                         }
                     }

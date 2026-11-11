@@ -1,5 +1,6 @@
 package com.dave.moneymanager.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +35,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dave.moneymanager.data.model.ShieldTransactionStatus
@@ -54,6 +57,7 @@ import com.dave.moneymanager.data.model.TransactionCategory
 import com.dave.moneymanager.data.model.TransactionEditHistory
 import com.dave.moneymanager.ui.theme.Blue500
 import com.dave.moneymanager.ui.theme.Emerald500
+import com.dave.moneymanager.ui.theme.Emerald600
 import com.dave.moneymanager.ui.theme.Rose500
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -83,7 +87,7 @@ fun TransactionEditHistoryDialog(
         } else {
             incomeCategories.ifEmpty { TransactionCategory.defaultIncomeCategories }
         }
-        val typeLabel = if (transaction.type == Transaction.TYPE_EXPENSE) "Pengeluaran" else "Pemasukan"
+        val typeLabel = if (transaction.type == Transaction.TYPE_EXPENSE) "Expense" else "Income"
 
         AlertDialog(
             onDismissRequest = { showCategoryPicker = false },
@@ -97,7 +101,7 @@ fun TransactionEditHistoryDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Ubah Kategori $typeLabel",
+                        text = "Change $typeLabel Category",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -110,7 +114,7 @@ fun TransactionEditHistoryDialog(
                         .verticalScroll(rememberScrollState())
                 ) {
                     Text(
-                        text = "Pilih kategori baru untuk transaksi ini:",
+                        text = "Select a new category for this transaction:",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                         )
@@ -151,7 +155,7 @@ fun TransactionEditHistoryDialog(
             },
             confirmButton = {
                 TextButton(onClick = { showCategoryPicker = false }) {
-                    Text("Batal")
+                    Text("Cancel")
                 }
             }
         )
@@ -160,107 +164,132 @@ fun TransactionEditHistoryDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Blue500.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = null,
-                            tint = Blue500,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "Histori Perubahan",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 2.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Blue500.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
                         ) {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = null,
+                                tint = Blue500,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Edit History",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
                             Text(
                                 text = "$currentCategory • Rp ${formatter.format(transaction.amount)}",
-                                style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            if (onUpdateCategory != null && transaction.type != Transaction.TYPE_TRANSFER) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(Blue500.copy(alpha = 0.15f))
-                                        .clickable { showCategoryPicker = true }
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        }
+                    }
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(18.dp))
+                    }
+                }
+
+                val showCategoryAction = onUpdateCategory != null && transaction.type != Transaction.TYPE_TRANSFER
+                val showShieldAction = transaction.type == Transaction.TYPE_EXPENSE && onEditTransaction != null
+                if (showCategoryAction || showShieldAction) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (showCategoryAction) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Blue500.copy(alpha = 0.12f),
+                                border = BorderStroke(1.dp, Blue500.copy(alpha = 0.35f)),
+                                modifier = Modifier.clickable { showCategoryPicker = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Default.Edit,
-                                            contentDescription = "Ubah Kategori",
-                                            tint = Blue500,
-                                            modifier = Modifier.size(10.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                        Text(
-                                            text = "Ubah",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Blue500,
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Change Category",
+                                        tint = Blue500,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Change Category",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Blue500,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
                                 }
                             }
-                            if (transaction.type == Transaction.TYPE_EXPENSE && onEditTransaction != null) {
-                                val isShield = shieldStatus != ShieldTransactionStatus.NONE ||
-                                        transaction.note.contains("Ditalangi Shield", ignoreCase = true) ||
-                                        transaction.category.equals("Shield", ignoreCase = true)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(Emerald500.copy(alpha = if (isShield) 0.16f else 0.12f))
-                                        .clickable {
-                                            onDismiss()
-                                            onEditTransaction()
-                                        }
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        }
+
+                        if (showShieldAction) {
+                            val isShield = shieldStatus != ShieldTransactionStatus.NONE ||
+                                    transaction.note.contains("Ditalangi Shield", ignoreCase = true) ||
+                                    transaction.note.contains("Shield", ignoreCase = true) ||
+                                    transaction.category.equals("Shield", ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Emerald500.copy(alpha = 0.12f),
+                                border = BorderStroke(1.dp, Emerald500.copy(alpha = 0.35f)),
+                                modifier = Modifier.clickable {
+                                    onDismiss()
+                                    onEditTransaction()
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Default.Shield,
-                                            contentDescription = if (isShield) "Shield Aktif" else "Jadikan Shield",
-                                            tint = Emerald500,
-                                            modifier = Modifier.size(10.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                        Text(
-                                            text = if (isShield) "Shield" else "+ Shield",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Emerald500,
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.Shield,
+                                        contentDescription = if (isShield) "Active Shield" else "Convert to Shield",
+                                        tint = Emerald600,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (isShield) "Shield Active" else "+ Add Shield",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Emerald600,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
                                 }
                             }
                         }
                     }
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Tutup")
                 }
             }
         },
@@ -273,7 +302,7 @@ fun TransactionEditHistoryDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Belum ada histori perubahan untuk transaksi ini.",
+                        text = "No edit history recorded for this transaction yet.",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -353,13 +382,13 @@ fun TransactionEditHistoryDialog(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
-                                            text = "Sebelum: Rp ${formatter.format(edit.oldAmount)}",
+                                            text = "Before: Rp ${formatter.format(edit.oldAmount)}",
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                             )
                                         )
                                         Text(
-                                            text = "Sesudah: Rp ${formatter.format(edit.newAmount)}",
+                                            text = "After: Rp ${formatter.format(edit.newAmount)}",
                                             style = MaterialTheme.typography.bodySmall.copy(
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -389,7 +418,7 @@ fun TransactionEditHistoryDialog(
                                         )
                                         Spacer(modifier = Modifier.width(5.dp))
                                         Text(
-                                            text = "Kategori: ",
+                                            text = "Category: ",
                                             style = MaterialTheme.typography.labelSmall.copy(
                                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                                                 fontSize = 11.sp
@@ -460,16 +489,18 @@ fun TransactionEditHistoryDialog(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (isExp) "Edit / Jadikan Shield" else "Edit Transaksi",
+                        text = if (isExp) "Edit / Split Bill" else "Edit Transaction",
                         color = if (isExp) Emerald500 else Blue500,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
         } else null,
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Tutup", fontWeight = FontWeight.Bold)
+                Text("Close", fontWeight = FontWeight.Bold)
             }
         }
     )

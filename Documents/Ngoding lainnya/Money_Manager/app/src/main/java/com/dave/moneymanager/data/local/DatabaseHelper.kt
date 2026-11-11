@@ -124,6 +124,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         const val COL_DEBT_SETTLED_AT = "settled_at"
         const val COL_DEBT_SETTLED_BANK_ID = "settled_bank_id"
         const val COL_DEBT_SETTLED_BANK_NAME = "settled_bank_name"
+        const val COL_DEBT_CATEGORY = "category"
+        const val COL_DEBT_SETTLED_TX_ID = "settled_tx_id"
         const val COL_DEBT_AVATAR_URI = "avatar_uri"
 
         @Volatile
@@ -278,6 +280,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                 $COL_DEBT_SETTLED_AT INTEGER,
                 $COL_DEBT_SETTLED_BANK_ID INTEGER,
                 $COL_DEBT_SETTLED_BANK_NAME TEXT,
+                $COL_DEBT_CATEGORY TEXT DEFAULT 'Food & Dining',
+                $COL_DEBT_SETTLED_TX_ID INTEGER,
                 $COL_DEBT_AVATAR_URI TEXT
             )
         """.trimIndent()
@@ -326,9 +330,17 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     $COL_DEBT_SETTLED_AT INTEGER,
                     $COL_DEBT_SETTLED_BANK_ID INTEGER,
                     $COL_DEBT_SETTLED_BANK_NAME TEXT,
+                    $COL_DEBT_CATEGORY TEXT DEFAULT 'Food & Dining',
+                    $COL_DEBT_SETTLED_TX_ID INTEGER,
                     $COL_DEBT_AVATAR_URI TEXT
                 )
             """.trimIndent())
+            try {
+                db.execSQL("ALTER TABLE $TABLE_MY_DEBTS ADD COLUMN $COL_DEBT_CATEGORY TEXT DEFAULT 'Food & Dining'")
+            } catch (_: Exception) {}
+            try {
+                db.execSQL("ALTER TABLE $TABLE_MY_DEBTS ADD COLUMN $COL_DEBT_SETTLED_TX_ID INTEGER")
+            } catch (_: Exception) {}
 
             db.execSQL("""
                 INSERT OR IGNORE INTO $TABLE_SHIELD_CONTACTS ($COL_CONTACT_NAME, $COL_CONTACT_AVATAR, $COL_CONTACT_CREATED_AT)
@@ -731,7 +743,7 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
 
                 db.execSQL("""
                     UPDATE $TABLE_NOTIF_LOGS
-                    SET $COL_LOG_STATUS = 'IGNORED (Promosi Diabaikan)',
+                    SET $COL_LOG_STATUS = 'IGNORED (Promo Ignored)',
                         $COL_LOG_DETECTED_TYPE = NULL
                     WHERE (
                         LOWER($COL_LOG_CONTENT) LIKE '%klaim%' OR
@@ -1408,10 +1420,10 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
 
                 if (oldTx.amount != newTx.amount) {
                     val diffStr = if (diff > 0) "+Rp ${fmt.format(diff)}" else "-Rp ${fmt.format(-diff)}"
-                    changes.add("Nominal: Rp ${fmt.format(oldTx.amount)} → Rp ${fmt.format(newTx.amount)} ($diffStr)")
+                    changes.add("Amount: Rp ${fmt.format(oldTx.amount)} → Rp ${fmt.format(newTx.amount)} ($diffStr)")
                 }
                 if (oldTx.category != newTx.category) {
-                    changes.add("Kategori: ${oldTx.category} → ${newTx.category}")
+                    changes.add("Category: ${oldTx.category} → ${newTx.category}")
                 }
                 if (oldTx.bankId != newTx.bankId) {
                     changes.add("Wallet: $oldBankName → $newBankName")
@@ -1422,13 +1434,13 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                     changes.add("Target: $oldTarget → $newTarget")
                 }
                 if (oldTx.type != newTx.type) {
-                    changes.add("Tipe: ${oldTx.type} → ${newTx.type}")
+                    changes.add("Type: ${oldTx.type} → ${newTx.type}")
                 }
                 if (oldTx.note.trim() != newTx.note.trim()) {
-                    changes.add("Catatan diubah")
+                    changes.add("Note updated")
                 }
                 if (oldTx.destination?.trim() != newTx.destination?.trim()) {
-                    changes.add("Tujuan/Penerima diubah")
+                    changes.add("Destination/Recipient updated")
                 }
 
                 if (changes.isNotEmpty()) {
@@ -2345,9 +2357,13 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             val settledAtIdx = it.getColumnIndexOrThrow(COL_DEBT_SETTLED_AT)
             val settledBankIdIdx = it.getColumnIndexOrThrow(COL_DEBT_SETTLED_BANK_ID)
             val settledBankNameIdx = it.getColumnIndexOrThrow(COL_DEBT_SETTLED_BANK_NAME)
+            val categoryIdx = it.getColumnIndex(COL_DEBT_CATEGORY)
+            val settledTxIdIdx = it.getColumnIndex(COL_DEBT_SETTLED_TX_ID)
             val avatarIdx = it.getColumnIndexOrThrow(COL_DEBT_AVATAR_URI)
 
             while (it.moveToNext()) {
+                val rawCat = if (categoryIdx >= 0 && !it.isNull(categoryIdx)) it.getString(categoryIdx) else null
+                val settledTxId = if (settledTxIdIdx >= 0 && !it.isNull(settledTxIdIdx)) it.getLong(settledTxIdIdx) else null
                 list.add(
                     MyDebtEntry(
                         id = it.getLong(idIdx),
@@ -2359,6 +2375,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
                         settledAt = if (it.isNull(settledAtIdx)) null else it.getLong(settledAtIdx),
                         settledBankId = if (it.isNull(settledBankIdIdx)) null else it.getLong(settledBankIdIdx),
                         settledBankName = if (it.isNull(settledBankNameIdx)) null else it.getString(settledBankNameIdx),
+                        category = rawCat?.takeIf { c -> c.isNotBlank() } ?: "Food & Dining",
+                        settledTransactionId = settledTxId,
                         avatarUri = if (it.isNull(avatarIdx)) null else it.getString(avatarIdx)
                     )
                 )
@@ -2378,6 +2396,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             put(COL_DEBT_SETTLED_AT, debt.settledAt)
             put(COL_DEBT_SETTLED_BANK_ID, debt.settledBankId)
             put(COL_DEBT_SETTLED_BANK_NAME, debt.settledBankName)
+            put(COL_DEBT_CATEGORY, debt.category.ifBlank { "Food & Dining" })
+            put(COL_DEBT_SETTLED_TX_ID, debt.settledTransactionId)
             put(COL_DEBT_AVATAR_URI, debt.avatarUri)
         }
         val id = db.insert(TABLE_MY_DEBTS, null, cv)
@@ -2398,6 +2418,8 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             put(COL_DEBT_SETTLED_AT, debt.settledAt)
             put(COL_DEBT_SETTLED_BANK_ID, debt.settledBankId)
             put(COL_DEBT_SETTLED_BANK_NAME, debt.settledBankName)
+            put(COL_DEBT_CATEGORY, debt.category.ifBlank { "Food & Dining" })
+            put(COL_DEBT_SETTLED_TX_ID, debt.settledTransactionId)
             put(COL_DEBT_AVATAR_URI, debt.avatarUri)
         }
         val rows = db.update(TABLE_MY_DEBTS, cv, "$COL_DEBT_ID = ?", arrayOf(debt.id.toString()))
@@ -2412,40 +2434,92 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         return db.delete(TABLE_MY_DEBTS, "$COL_DEBT_ID = ?", arrayOf(debtId.toString())) > 0
     }
 
-    fun settleMyDebt(debtId: Long, bankId: Long?, bankName: String?, deductWallet: Boolean = true): Boolean {
+    fun settleMyDebt(
+        debtId: Long,
+        bankId: Long?,
+        bankName: String?,
+        category: String? = null,
+        deductWallet: Boolean = true
+    ): Boolean {
         val db = writableDatabase
         db.beginTransaction()
         try {
             val cursor = db.query(TABLE_MY_DEBTS, null, "$COL_DEBT_ID = ?", arrayOf(debtId.toString()), null, null, null)
-            val debt = cursor.use {
-                if (it.moveToFirst()) {
-                    val amount = it.getDouble(it.getColumnIndexOrThrow(COL_DEBT_AMOUNT))
-                    val isAlreadySettled = it.getInt(it.getColumnIndexOrThrow(COL_DEBT_IS_SETTLED)) == 1
-                    Pair(amount, isAlreadySettled)
-                } else null
-            } ?: return false
+            var personName = ""
+            var amount = 0.0
+            var note = ""
+            var isAlreadySettled = false
+            var existingBankId: Long? = null
+            var existingBankName: String? = null
+            var existingCategory: String? = null
 
-            val (amount, isAlreadySettled) = debt
+            val found = cursor.use {
+                if (it.moveToFirst()) {
+                    personName = it.getString(it.getColumnIndexOrThrow(COL_DEBT_PERSON_NAME)) ?: ""
+                    amount = it.getDouble(it.getColumnIndexOrThrow(COL_DEBT_AMOUNT))
+                    note = it.getString(it.getColumnIndexOrThrow(COL_DEBT_NOTE)) ?: ""
+                    isAlreadySettled = it.getInt(it.getColumnIndexOrThrow(COL_DEBT_IS_SETTLED)) == 1
+                    val bIdIdx = it.getColumnIndexOrThrow(COL_DEBT_SETTLED_BANK_ID)
+                    existingBankId = if (it.isNull(bIdIdx)) null else it.getLong(bIdIdx)
+                    val bNameIdx = it.getColumnIndexOrThrow(COL_DEBT_SETTLED_BANK_NAME)
+                    existingBankName = if (it.isNull(bNameIdx)) null else it.getString(bNameIdx)
+                    val catIdx = it.getColumnIndex(COL_DEBT_CATEGORY)
+                    existingCategory = if (catIdx >= 0 && !it.isNull(catIdx)) it.getString(catIdx) else null
+                    true
+                } else false
+            }
+            if (!found) return false
+
             if (isAlreadySettled) {
                 db.setTransactionSuccessful()
                 return true
             }
 
+            val finalBankId = bankId ?: existingBankId
+            val finalBankName = bankName ?: existingBankName
+            val finalCategory = category?.takeIf { it.isNotBlank() }
+                ?: existingCategory?.takeIf { it.isNotBlank() }
+                ?: "Food & Dining"
+
             val now = System.currentTimeMillis()
+            var createdTxId: Long? = null
+
+            if (deductWallet && finalBankId != null && finalBankId > 0) {
+                val txNote = if (note.isNotBlank()) {
+                    "Debt Payment ($personName): $note"
+                } else {
+                    "Debt Payment to $personName"
+                }
+                val txCv = ContentValues().apply {
+                    put(COL_TX_BANK_ID, finalBankId)
+                    put(COL_TX_TYPE, Transaction.TYPE_EXPENSE)
+                    put(COL_TX_AMOUNT, amount)
+                    put(COL_TX_CATEGORY, finalCategory)
+                    put(COL_TX_NOTE, txNote)
+                    put(COL_TX_TIMESTAMP, now)
+                    put(COL_TX_IS_AUTO_SCRAPED, 0)
+                    put(COL_TX_DESTINATION, personName)
+                }
+                val insId = db.insert(TABLE_TRANSACTIONS, null, txCv)
+                if (insId > 0) {
+                    createdTxId = insId
+                }
+                db.execSQL(
+                    "UPDATE $TABLE_BANKS SET $COL_BANK_BALANCE = $COL_BANK_BALANCE - ? WHERE $COL_BANK_ID = ?",
+                    arrayOf(amount, finalBankId)
+                )
+            }
+
             val cv = ContentValues().apply {
                 put(COL_DEBT_IS_SETTLED, 1)
                 put(COL_DEBT_SETTLED_AT, now)
-                put(COL_DEBT_SETTLED_BANK_ID, bankId)
-                put(COL_DEBT_SETTLED_BANK_NAME, bankName)
+                put(COL_DEBT_SETTLED_BANK_ID, finalBankId)
+                put(COL_DEBT_SETTLED_BANK_NAME, finalBankName)
+                put(COL_DEBT_CATEGORY, finalCategory)
+                put(COL_DEBT_SETTLED_TX_ID, createdTxId)
             }
             val rows = db.update(TABLE_MY_DEBTS, cv, "$COL_DEBT_ID = ?", arrayOf(debtId.toString()))
             if (rows > 0) {
-                if (deductWallet && bankId != null && bankId > 0) {
-                    db.execSQL(
-                        "UPDATE $TABLE_BANKS SET $COL_BANK_BALANCE = $COL_BANK_BALANCE - ? WHERE $COL_BANK_ID = ?",
-                        arrayOf(amount, bankId)
-                    )
-                }
                 db.setTransactionSuccessful()
                 return true
             }
@@ -2460,16 +2534,24 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
         db.beginTransaction()
         try {
             val cursor = db.query(TABLE_MY_DEBTS, null, "$COL_DEBT_ID = ?", arrayOf(debtId.toString()), null, null, null)
-            val debtInfo = cursor.use {
-                if (it.moveToFirst()) {
-                    val amount = it.getDouble(it.getColumnIndexOrThrow(COL_DEBT_AMOUNT))
-                    val isSettled = it.getInt(it.getColumnIndexOrThrow(COL_DEBT_IS_SETTLED)) == 1
-                    val bankId = if (it.isNull(it.getColumnIndexOrThrow(COL_DEBT_SETTLED_BANK_ID))) null else it.getLong(it.getColumnIndexOrThrow(COL_DEBT_SETTLED_BANK_ID))
-                    Triple(amount, isSettled, bankId)
-                } else null
-            } ?: return false
+            var amount = 0.0
+            var isSettled = false
+            var bankId: Long? = null
+            var settledTxId: Long? = null
 
-            val (amount, isSettled, bankId) = debtInfo
+            val found = cursor.use {
+                if (it.moveToFirst()) {
+                    amount = it.getDouble(it.getColumnIndexOrThrow(COL_DEBT_AMOUNT))
+                    isSettled = it.getInt(it.getColumnIndexOrThrow(COL_DEBT_IS_SETTLED)) == 1
+                    val bIdIdx = it.getColumnIndexOrThrow(COL_DEBT_SETTLED_BANK_ID)
+                    bankId = if (it.isNull(bIdIdx)) null else it.getLong(bIdIdx)
+                    val txIdIdx = it.getColumnIndex(COL_DEBT_SETTLED_TX_ID)
+                    settledTxId = if (txIdIdx >= 0 && !it.isNull(txIdIdx)) it.getLong(txIdIdx) else null
+                    true
+                } else false
+            }
+            if (!found) return false
+
             if (!isSettled) {
                 db.setTransactionSuccessful()
                 return true
@@ -2478,12 +2560,14 @@ class DatabaseHelper(private val context: Context) : SQLiteOpenHelper(context, D
             val cv = ContentValues().apply {
                 put(COL_DEBT_IS_SETTLED, 0)
                 putNull(COL_DEBT_SETTLED_AT)
-                putNull(COL_DEBT_SETTLED_BANK_ID)
-                putNull(COL_DEBT_SETTLED_BANK_NAME)
+                putNull(COL_DEBT_SETTLED_TX_ID)
             }
             val rows = db.update(TABLE_MY_DEBTS, cv, "$COL_DEBT_ID = ?", arrayOf(debtId.toString()))
             if (rows > 0) {
-                if (bankId != null && bankId > 0) {
+                if (settledTxId != null && settledTxId!! > 0) {
+                    db.delete(TABLE_TRANSACTIONS, "$COL_TX_ID = ?", arrayOf(settledTxId.toString()))
+                }
+                if (bankId != null && bankId!! > 0) {
                     db.execSQL(
                         "UPDATE $TABLE_BANKS SET $COL_BANK_BALANCE = $COL_BANK_BALANCE + ? WHERE $COL_BANK_ID = ?",
                         arrayOf(amount, bankId)

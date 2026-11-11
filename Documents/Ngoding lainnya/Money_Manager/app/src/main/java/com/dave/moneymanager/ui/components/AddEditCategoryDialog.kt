@@ -94,18 +94,18 @@ fun AddEditCategoryDialog(
     var selectedIconKey by remember { mutableStateOf(categoryToEdit?.icon ?: if (isExpense) "food" else "salary") }
 
     val colorPresets = listOf(
-        0xFFF59E0BL,
-        0xFFEC4899L,
-        0xFF3B82F6L,
-        0xFF8B5CF6L,
-        0xFF06B6D4L,
-        0xFFEF4444L,
-        0xFF10B981L,
-        0xFF14B8A6L,
-        0xFF6366F1L,
-        0xFFF97316L,
-        0xFF84CC16L,
-        0xFF64748BL
+        0xFFF97316L, // Tangerine Orange
+        0xFF3B82F6L, // Vibrant Blue
+        0xFFF59E0BL, // Bright Amber
+        0xFF10B981L, // Fresh Emerald
+        0xFF14B8A6L, // Crisp Teal
+        0xFF8B5CF6L, // Bright Violet
+        0xFFEF4444L, // Bright Red
+        0xFFEC4899L, // Vivid Pink
+        0xFF06B6D4L, // Electric Cyan
+        0xFF6366F1L, // Bright Indigo
+        0xFF84CC16L, // Fresh Lime
+        0xFF64748BL  // Slate
     )
     var selectedColor by remember {
         mutableLongStateOf(categoryToEdit?.colorHex ?: colorPresets.first())
@@ -114,7 +114,7 @@ fun AddEditCategoryDialog(
     val iconOptions = listOf(
         IconOption("church", Icons.Default.Church, "Church"),
         IconOption("love", Icons.Default.Favorite, "With Her / Love"),
-        IconOption("debt", Icons.Default.Handshake, "Debt / Hutang"),
+        IconOption("debt", Icons.Default.Handshake, "Debt"),
         IconOption("reimburse", Icons.Default.PriceCheck, "Reimburse"),
         IconOption("shield", Icons.Default.Shield, "Shield"),
         IconOption("food", Icons.Default.Fastfood, "Food"),

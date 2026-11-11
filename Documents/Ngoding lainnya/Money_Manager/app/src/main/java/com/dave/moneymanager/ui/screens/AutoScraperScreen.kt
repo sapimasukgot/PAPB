@@ -1,6 +1,7 @@
 package com.dave.moneymanager.ui.screens
 
 import android.content.Context
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -37,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +47,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.dave.moneymanager.data.model.ScrapedNotificationLog
+import com.dave.moneymanager.ui.theme.Blue500
 import com.dave.moneymanager.ui.theme.Emerald500
 import com.dave.moneymanager.ui.theme.Rose500
 import com.dave.moneymanager.ui.viewmodel.MoneyViewModel
@@ -86,14 +90,26 @@ fun AutoScraperScreen(viewModel: MoneyViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Scraping Activity Logs (${processedLogs.size})",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
+                Column {
+                    Text(
+                        text = "Captured Notifications (${processedLogs.size})",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "Automatically recorded from banking & e-wallet alerts",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    )
+                }
 
                 if (processedLogs.isNotEmpty()) {
                     IconButton(onClick = { viewModel.clearNotificationLogs() }) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = "Clear Logs")
+                        Icon(
+                            imageVector = Icons.Default.DeleteSweep,
+                            contentDescription = "Clear Logs",
+                            tint = Rose500
+                        )
                     }
                 }
             }
@@ -103,35 +119,47 @@ fun AutoScraperScreen(viewModel: MoneyViewModel) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                    ),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        containerColor = MaterialTheme.colorScheme.surface
                     )
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
+                            .padding(28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = Emerald500.copy(alpha = 0.6f),
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(Emerald500.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Emerald500,
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Belum Ada Transaksi Notifikasi",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                            text = "No Captured Notifications Yet",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Transaksi yang terdeteksi otomatis dari notifikasi GoPay, ShopeePay, OVO, BNI, CIMB, dan myBCA akan otomatis dicatat dan ditampilkan di sini.",
+                            text = "Transactions detected automatically from GoPay, ShopeePay, OVO, BNI, CIMB, and myBCA notifications will appear here.",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             ),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -148,25 +176,30 @@ fun AutoScraperScreen(viewModel: MoneyViewModel) {
 private fun ScrapedLogItem(log: ScrapedNotificationLog, formatRupiah: (Double) -> String) {
     val timeFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
     val isProcessed = log.status.startsWith("PROCESSED")
+    val isTransfer = log.detectedType == "TRANSFER"
+    val isIncome = log.detectedType == "INCOME"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        ),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-
                 Box(
                     modifier = Modifier
                         .weight(1f, fill = false)
                         .clip(RoundedCornerShape(6.dp))
-                        .background(if (isProcessed) Emerald500.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant)
+                        .background(if (isProcessed) Emerald500.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant)
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
@@ -185,7 +218,7 @@ private fun ScrapedLogItem(log: ScrapedNotificationLog, formatRupiah: (Double) -
                 Text(
                     text = timeFormat.format(Date(log.timestamp)),
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
                     ),
@@ -194,28 +227,35 @@ private fun ScrapedLogItem(log: ScrapedNotificationLog, formatRupiah: (Double) -
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = "${log.title}: ${log.content}",
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                )
             )
 
             if (isProcessed && log.amount != null) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "Account: ${log.targetBank ?: "-"}",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium)
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
                     )
                     Text(
                         text = "${log.detectedType}: ${formatRupiah(log.amount)}",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = if (log.detectedType == "INCOME") Emerald500 else Rose500
+                            fontWeight = FontWeight.ExtraBold,
+                            color = when {
+                                isTransfer -> Blue500
+                                isIncome -> Emerald500
+                                else -> Rose500
+                            }
                         )
                     )
                 }
@@ -223,9 +263,9 @@ private fun ScrapedLogItem(log: ScrapedNotificationLog, formatRupiah: (Double) -
                 if (!log.destination.isNullOrEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Destination/Source: ${log.destination}",
+                        text = "Merchant / Party: ${log.destination}",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             color = Emerald500
                         )
                     )

@@ -181,12 +181,12 @@ fun CalculatorDialog(
                         }
                         Spacer(modifier = Modifier.size(10.dp))
                         Text(
-                            text = "Kalkulator Harga",
+                            text = "Amount Calculator",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Tutup")
+                        Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
 
@@ -354,7 +354,7 @@ fun CalculatorDialog(
                     Icon(imageVector = Icons.Default.Check, contentDescription = null)
                     Spacer(modifier = Modifier.size(8.dp))
                     Text(
-                        text = "Gunakan Rp $formattedLiveResult",
+                        text = "Use Rp $formattedLiveResult",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )

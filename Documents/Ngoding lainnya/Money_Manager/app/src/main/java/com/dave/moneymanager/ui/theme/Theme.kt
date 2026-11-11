@@ -19,30 +19,30 @@ private val DarkColorScheme = darkColorScheme(
     onPrimaryContainer = Color.White,
     secondary = Blue500,
     onSecondary = Color.White,
-    background = Slate900,
-    onBackground = Color.White,
-    surface = Slate800,
-    onSurface = Color.White,
-    surfaceVariant = Slate700,
+    background = Slate950,
+    onBackground = Slate50,
+    surface = Slate850,
+    onSurface = Slate50,
+    surfaceVariant = Slate800,
     onSurfaceVariant = Slate300,
     error = Rose500,
     onError = Color.White
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Emerald600,
+    primary = Emerald500,
     onPrimary = Color.White,
     primaryContainer = Slate100,
     onPrimaryContainer = Slate900,
-    secondary = Blue600,
+    secondary = Blue500,
     onSecondary = Color.White,
     background = Slate50,
     onBackground = Slate900,
     surface = Color.White,
     onSurface = Slate900,
     surfaceVariant = Slate100,
-    onSurfaceVariant = Slate700,
-    error = Rose600,
+    onSurfaceVariant = Slate600,
+    error = Rose500,
     onError = Color.White
 )
 

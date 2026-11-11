@@ -397,8 +397,8 @@ class MoneyRepository private constructor(context: Context) {
                         newTx.destination != null && newTx.destination.isNotBlank() -> "${newTx.category} di ${newTx.destination}"
                         newTx.note.isNotBlank() -> {
                             val cleaned = newTx.note
-                                .replace(Regex("""(?i)\s*•\s*Kasir:\s*Rp\s*[\d,.]+(?:\s*\([^)]*\))?"""), "")
-                                .replace(Regex("""(?i)^Kasir:\s*Rp\s*[\d,.]+(?:\s*\([^)]*\))?"""), "")
+                                .replace(Regex("""(?i)\s*•\s*(?:Kasir|Cashier|Total):\s*Rp\s*[\d,.]+(?:\s*\([^)]*\))?"""), "")
+                                .replace(Regex("""(?i)^(?:Kasir|Cashier|Total):\s*Rp\s*[\d,.]+(?:\s*\([^)]*\))?"""), "")
                                 .trim()
                             if (cleaned.isNotBlank()) cleaned else newTx.category
                         }
@@ -469,8 +469,8 @@ class MoneyRepository private constructor(context: Context) {
                 return@withLock ScrapedProcessResult(
                     success = false,
                     isTransfer = false,
-                    message = "Notifikasi diabaikan: Mengandung emoji/promosi.",
-                    logStatus = "IGNORED (Promosi / Mengandung Emoji)"
+                    message = "Notification ignored: Contains emoji or promo.",
+                    logStatus = "IGNORED (Promo / Contains Emoji)"
                 )
             }
 
@@ -478,8 +478,8 @@ class MoneyRepository private constructor(context: Context) {
                 return@withLock ScrapedProcessResult(
                     success = false,
                     isTransfer = false,
-                    message = "Notifikasi diabaikan: Cashback & Koin/Points tidak dicatat.",
-                    logStatus = "IGNORED (Cashback/Koin Diabaikan)"
+                    message = "Notification ignored: Cashback & Coins/Points are not recorded.",
+                    logStatus = "IGNORED (Cashback/Coins Ignored)"
                 )
             }
 
@@ -487,8 +487,8 @@ class MoneyRepository private constructor(context: Context) {
                 return@withLock ScrapedProcessResult(
                     success = false,
                     isTransfer = false,
-                    message = "Notifikasi diabaikan: Pesan promosi, penawaran, atau marketing.",
-                    logStatus = "IGNORED (Promosi / Marketing)"
+                    message = "Notification ignored: Promotional, offer, or marketing message.",
+                    logStatus = "IGNORED (Promo / Marketing)"
                 )
             }
 
@@ -496,22 +496,22 @@ class MoneyRepository private constructor(context: Context) {
                 return@withLock ScrapedProcessResult(
                     success = false,
                     isTransfer = false,
-                    message = "Notifikasi diabaikan: Tidak ada bukti transaksi riil.",
-                    logStatus = "IGNORED (Bukan Bukti Transaksi Riil)"
+                    message = "Notification ignored: No real transaction proof.",
+                    logStatus = "IGNORED (Not Real Transaction Proof)"
                 )
             }
 
             val parsed = NotificationParser.parse(packageName, title, content, isClonedUser)
             if (parsed == null || !parsed.isValidTransaction) {
                 val status = if (NotificationParser.extractAmount(fullText) == null) {
-                    "IGNORED (Nominal Rp tidak ditemukan dalam notifikasi)"
+                    "IGNORED (Rp amount not found in notification)"
                 } else {
-                    "IGNORED (Bukan Transaksi Keuangan)"
+                    "IGNORED (Not Financial Transaction)"
                 }
                 return@withLock ScrapedProcessResult(
                     success = false,
                     isTransfer = false,
-                    message = "Notifikasi diabaikan: $status",
+                    message = "Notification ignored: $status",
                     logStatus = status
                 )
             }
@@ -539,7 +539,7 @@ class MoneyRepository private constructor(context: Context) {
 
             if (isDuplicateTx) {
                 val amtFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(parsed.amount)
-                val logStatus = "IGNORED (Duplikat Transaksi)"
+                val logStatus = "IGNORED (Duplicate Transaction)"
                 recordNotificationLog(
                     ScrapedNotificationLog(
                         packageName = packageName,
@@ -557,7 +557,7 @@ class MoneyRepository private constructor(context: Context) {
                 return@withLock ScrapedProcessResult(
                     success = false,
                     isTransfer = false,
-                    message = "Notifikasi diabaikan: Transaksi serupa (Rp $amtFormatted) baru saja dicatat kurang dari 90 detik yang lalu.",
+                    message = "Notification ignored: Similar transaction (Rp $amtFormatted) was recorded less than 90s ago.",
                     logStatus = logStatus
                 )
             }
@@ -577,7 +577,7 @@ class MoneyRepository private constructor(context: Context) {
 
             if (isDuplicateOfRecentTransfer) {
                 val amtFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(parsed.amount)
-                val logStatus = "IGNORED (Bagian Dari Transfer Terproses)"
+                val logStatus = "IGNORED (Part of Processed Transfer)"
                 recordNotificationLog(
                     ScrapedNotificationLog(
                         packageName = packageName,
@@ -595,7 +595,7 @@ class MoneyRepository private constructor(context: Context) {
                 return@withLock ScrapedProcessResult(
                     success = false,
                     isTransfer = true,
-                    message = "Notifikasi diabaikan: Transaksi ini sudah dicatat sebagai bagian dari transfer akun (Rp $amtFormatted).",
+                    message = "Notification ignored: This transaction was already recorded as part of an account transfer (Rp $amtFormatted).",
                     logStatus = logStatus
                 )
             }
@@ -697,7 +697,7 @@ class MoneyRepository private constructor(context: Context) {
                 loadAllTransactions()
                 loadFilteredTransactions()
 
-                val logStatus = "PROCESSED (Transfer Otomatis: $sourceBankName ➔ $targetBankName)"
+                val logStatus = "PROCESSED (Auto Transfer: $sourceBankName ➔ $targetBankName)"
                 recordNotificationLog(
                     ScrapedNotificationLog(
                         packageName = packageName,
@@ -717,7 +717,7 @@ class MoneyRepository private constructor(context: Context) {
                 return@withLock ScrapedProcessResult(
                     success = true,
                     isTransfer = true,
-                    message = "Berhasil dicatat sebagai Transfer: $sourceBankName ➔ $targetBankName (Rp $amtFormatted)",
+                    message = "Successfully recorded as Transfer: $sourceBankName ➔ $targetBankName (Rp $amtFormatted)",
                     transaction = transferTx.copy(id = txId),
                     logStatus = logStatus
                 )
@@ -759,12 +759,12 @@ class MoneyRepository private constructor(context: Context) {
             )
 
             val amtFormatted = java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(parsed.amount)
-            val actionLabel = if (parsed.type == Transaction.TYPE_INCOME) "Pemasukan" else "Pengeluaran"
+            val actionLabel = if (parsed.type == Transaction.TYPE_INCOME) "Income" else "Expense"
             val destInfo = if (!parsed.destination.isNullOrEmpty()) " [${parsed.destination}]" else ""
             return@withLock ScrapedProcessResult(
                 success = true,
                 isTransfer = false,
-                message = "Berhasil dicatat: $actionLabel Rp $amtFormatted di ${bank.name}$destInfo",
+                message = "Successfully recorded: $actionLabel Rp $amtFormatted at ${bank.name}$destInfo",
                 transaction = transaction.copy(id = txId),
                 logStatus = logStatus
             )
@@ -906,7 +906,7 @@ class MoneyRepository private constructor(context: Context) {
                         type = Transaction.TYPE_INCOME,
                         amount = f.amount,
                         category = "Reimburse",
-                        note = "Pelunasan talangan (Shield): $name${if (f.note.isNotBlank()) " - ${f.note.trim()}" else ""}",
+                        note = "Shield settlement: $name${if (f.note.isNotBlank()) " - ${f.note.trim()}" else ""}",
                         timestamp = timestamp,
                         destination = name
                     )
@@ -942,9 +942,9 @@ class MoneyRepository private constructor(context: Context) {
                         )
                     )
                     val settleHistNote = if (f.isTransfer) {
-                        "Ditransfer (${f.settleBankName ?: "Rekening"}): Lunas langsung"
+                        "Transferred (${f.settleBankName ?: "Account"}): Directly settled"
                     } else {
-                        "Lunas langsung (Tunai/Lainnya)"
+                        "Directly settled (Cash/Other)"
                     }
                     dbHelper.insertShieldHistory(
                         ShieldHistoryItem(
@@ -966,7 +966,7 @@ class MoneyRepository private constructor(context: Context) {
                         type = Transaction.TYPE_INCOME,
                         amount = f.paidAmount,
                         category = "Reimburse",
-                        note = "Pembayaran sebagian talangan (Shield): $name${if (f.note.isNotBlank()) " - ${f.note.trim()}" else ""}",
+                        note = "Shield partial payment: $name${if (f.note.isNotBlank()) " - ${f.note.trim()}" else ""}",
                         timestamp = timestamp,
                         destination = name
                     )
@@ -1020,9 +1020,9 @@ class MoneyRepository private constructor(context: Context) {
                         )
                     )
                     val deductionHistNote = if (f.isTransfer) {
-                        "Ditransfer (${f.settleBankName ?: "Rekening"}): Bayar sebagian saat transaksi"
+                        "Transferred (${f.settleBankName ?: "Account"}): Partial payment during transaction"
                     } else {
-                        "Bayar sebagian saat transaksi (Tunai/Lainnya)"
+                        "Partial payment during transaction (Cash/Other)"
                     }
                     dbHelper.insertShieldHistory(
                         ShieldHistoryItem(
@@ -1075,9 +1075,9 @@ class MoneyRepository private constructor(context: Context) {
         for (d in walletDeductions) {
             if (d.amount > 0 && d.bankId > 0) {
                 val txNote = if (entry.note.isNotBlank()) {
-                    "Talangan Shield: ${entry.friendName} - ${entry.note}"
+                    "Shield: ${entry.friendName} - ${entry.note}"
                 } else {
-                    "Talangan Shield: ${entry.friendName}"
+                    "Shield: ${entry.friendName}"
                 }
                 val tx = Transaction(
                     bankId = d.bankId,
@@ -1091,7 +1091,7 @@ class MoneyRepository private constructor(context: Context) {
                 )
                 val txId = dbHelper.insertTransaction(tx)
 
-                val hNote = historyNote ?: "Keluar dari ${d.bankName}: Rp ${java.text.NumberFormat.getNumberInstance(Locale.US).format(d.amount)}"
+                val hNote = historyNote ?: "Deducted from ${d.bankName}: Rp ${java.text.NumberFormat.getNumberInstance(Locale.US).format(d.amount)}"
                 dbHelper.insertShieldHistory(
                     ShieldHistoryItem(
                         shieldId = entry.id,
@@ -1113,7 +1113,7 @@ class MoneyRepository private constructor(context: Context) {
                     transactionId = null,
                     friendName = entry.friendName.trim(),
                     amount = diff,
-                    note = "Ubah jumlah shield: Rp ${java.text.NumberFormat.getNumberInstance(Locale.US).format(oldEntry.amount)} ➔ Rp ${java.text.NumberFormat.getNumberInstance(Locale.US).format(entry.amount)}",
+                    note = "Adjusted shield amount: Rp ${java.text.NumberFormat.getNumberInstance(Locale.US).format(oldEntry.amount)} ➔ Rp ${java.text.NumberFormat.getNumberInstance(Locale.US).format(entry.amount)}",
                     timestamp = System.currentTimeMillis()
                 )
             )
@@ -1136,9 +1136,9 @@ class MoneyRepository private constructor(context: Context) {
             for (d in walletDeductions) {
                 if (d.amount > 0 && d.bankId > 0) {
                     val txNote = if (entry.note.isNotBlank()) {
-                        "Talangan Shield: ${entry.friendName} - ${entry.note}"
+                        "Shield: ${entry.friendName} - ${entry.note}"
                     } else {
-                        "Talangan Shield: ${entry.friendName}"
+                        "Shield: ${entry.friendName}"
                     }
                     val tx = Transaction(
                         bankId = d.bankId,
@@ -1158,7 +1158,7 @@ class MoneyRepository private constructor(context: Context) {
                                 transactionId = txId,
                                 friendName = entry.friendName.trim(),
                                 amount = d.amount,
-                                note = "Keluar dari ${d.bankName}: Rp ${java.text.NumberFormat.getNumberInstance(Locale.US).format(d.amount)}",
+                                note = "Deducted from ${d.bankName}: Rp ${java.text.NumberFormat.getNumberInstance(Locale.US).format(d.amount)}",
                                 timestamp = System.currentTimeMillis()
                             )
                         )
@@ -1200,9 +1200,9 @@ class MoneyRepository private constructor(context: Context) {
         var incomeTxId: Long? = null
         if (isTransfer && bankId != null) {
             val incomeTxNote = if (note.isNotBlank()) {
-                "Pembayaran sebagian talangan (Shield): ${shield.friendName} - $note"
+                "Shield partial payment: ${shield.friendName} - $note"
             } else {
-                "Pembayaran sebagian talangan (Shield): ${shield.friendName}"
+                "Shield partial payment: ${shield.friendName}"
             }
             val tx = Transaction(
                 bankId = bankId,
@@ -1223,10 +1223,10 @@ class MoneyRepository private constructor(context: Context) {
         }
 
         val historyNote = when {
-            isTransfer && note.isNotBlank() -> "Ditransfer ($bankName): $note"
-            isTransfer -> "Ditransfer ($bankName)"
-            note.isNotBlank() -> "Dibayarin hal lain: $note"
-            else -> "Dibayarin hal lain"
+            isTransfer && note.isNotBlank() -> "Transferred ($bankName): $note"
+            isTransfer -> "Transferred ($bankName)"
+            note.isNotBlank() -> "Paid for something else: $note"
+            else -> "Paid for something else"
         }
         dbHelper.insertShieldHistory(
             ShieldHistoryItem(
@@ -1276,7 +1276,7 @@ class MoneyRepository private constructor(context: Context) {
                     type = Transaction.TYPE_INCOME,
                     amount = shield.amount,
                     category = "Reimburse",
-                    note = "Pelunasan talangan (Shield): ${shield.friendName}",
+                    note = "Shield settlement: ${shield.friendName}",
                     timestamp = System.currentTimeMillis(),
                     destination = shield.friendName
                 )
@@ -1323,18 +1323,17 @@ class MoneyRepository private constructor(context: Context) {
 
     suspend fun settleMyDebt(
         debtId: Long,
-        bankId: Long?,
-        bankName: String?,
+        bankId: Long? = null,
+        bankName: String? = null,
+        category: String? = null,
         deductWallet: Boolean = true
     ): Boolean = withContext(Dispatchers.IO) {
-        val ok = dbHelper.settleMyDebt(debtId, bankId, bankName, deductWallet)
+        val ok = dbHelper.settleMyDebt(debtId, bankId, bankName, category, deductWallet)
         if (ok) {
             loadMyDebts()
-            if (deductWallet && bankId != null && bankId > 0) {
-                loadBanks()
-                loadAllTransactions()
-                loadFilteredTransactions()
-            }
+            loadBanks()
+            loadAllTransactions()
+            loadFilteredTransactions()
         }
         ok
     }

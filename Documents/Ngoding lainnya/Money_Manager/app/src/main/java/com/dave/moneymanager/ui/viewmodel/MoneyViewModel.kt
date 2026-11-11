@@ -178,7 +178,7 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
 
         val note = tx.note
         if (note.isNotBlank()) {
-            val pribadiRegex = Regex("""Pribadi(?:\s*:)?\s*Rp\s*([\d,.]+)""", RegexOption.IGNORE_CASE)
+            val pribadiRegex = Regex("""(?:Pribadi|Personal)(?:\s*:)?\s*Rp\s*([\d,.]+)""", RegexOption.IGNORE_CASE)
             pribadiRegex.find(note)?.let { match ->
                 val numStr = match.groupValues[1]
                 parseAmountFromText(numStr)?.let { pribadiAmt ->
@@ -186,7 +186,7 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            val shieldRegex = Regex("""Ditalangi(?:\s*Shield)?(?:\s*:)?\s*Rp\s*([\d,.]+)""", RegexOption.IGNORE_CASE)
+            val shieldRegex = Regex("""(?:Ditalangi(?:\s*Shield)?|Shielded)(?:\s*:)?\s*Rp\s*([\d,.]+)""", RegexOption.IGNORE_CASE)
             shieldRegex.find(note)?.let { match ->
                 val numStr = match.groupValues[1]
                 parseAmountFromText(numStr)?.let { shieldAmt ->
@@ -465,7 +465,7 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
 
             if (!shieldFriends.isNullOrEmpty()) {
                 val defaultShieldNote = when {
-                    destination != null && destination.isNotBlank() -> "$finalCategory di $destination"
+                    destination != null && destination.isNotBlank() -> "$finalCategory at $destination"
                     note.isNotBlank() -> note.trim()
                     else -> finalCategory
                 }
@@ -989,7 +989,10 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
         amount: Double,
         note: String = "",
         timestamp: Long = System.currentTimeMillis(),
-        avatarUri: String? = null
+        avatarUri: String? = null,
+        bankId: Long? = null,
+        bankName: String? = null,
+        category: String = "Food & Dining"
     ) {
         viewModelScope.launch {
             repository.addMyDebt(
@@ -998,6 +1001,9 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
                     amount = amount,
                     note = note.trim(),
                     timestamp = timestamp,
+                    settledBankId = bankId,
+                    settledBankName = bankName,
+                    category = category.ifBlank { "Food & Dining" },
                     avatarUri = avatarUri
                 )
             )
@@ -1020,10 +1026,11 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
         debtId: Long,
         bankId: Long? = null,
         bankName: String? = null,
+        category: String? = null,
         deductWallet: Boolean = true
     ) {
         viewModelScope.launch {
-            repository.settleMyDebt(debtId, bankId, bankName, deductWallet)
+            repository.settleMyDebt(debtId, bankId, bankName, category, deductWallet)
         }
     }
 
@@ -1082,6 +1089,7 @@ class MoneyViewModel(application: Application) : AndroidViewModel(application) {
 
         if (note.contains("Ditalangi Shield", ignoreCase = true) ||
             note.contains("Ditalangi:", ignoreCase = true) ||
+            note.contains("Shielded:", ignoreCase = true) ||
             category.equals("Shield", ignoreCase = true)
         ) {
             val hasUnsettled = sList.any { !it.isSettled }

@@ -2,6 +2,7 @@ package com.dave.moneymanager.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -323,13 +324,13 @@ fun CategoriesScreen(
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Column {
                                             Text(
-                                                text = "Mutasi Wallet",
+                                                text = "Wallet Statements",
                                                 style = MaterialTheme.typography.titleSmall.copy(
                                                     fontWeight = FontWeight.Bold
                                                 )
                                             )
                                             Text(
-                                                text = "Tekan untuk melihat riwayat mutasi dompet",
+                                                text = "View inflow & outflow history per account",
                                                 style = MaterialTheme.typography.bodySmall.copy(
                                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                                     fontSize = 11.sp
@@ -346,7 +347,7 @@ fun CategoriesScreen(
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
-                                                text = "Buka",
+                                                text = "Open",
                                                 color = Color.White,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 11.sp
@@ -577,8 +578,8 @@ fun CategoriesScreen(
         val isTransfer = tx.type == Transaction.TYPE_TRANSFER
         val typeLabel = when {
             isTransfer -> "Transfer"
-            isIncome -> "Pemasukan"
-            else -> "Pengeluaran"
+            isIncome -> "Income"
+            else -> "Expense"
         }
 
         AlertDialog(
@@ -593,7 +594,7 @@ fun CategoriesScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Hapus Riwayat Transaksi",
+                        text = "Delete Transaction",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -601,7 +602,7 @@ fun CategoriesScreen(
             text = {
                 Column {
                     Text(
-                        text = "Apakah Anda yakin ingin menghapus transaksi ini?",
+                        text = "Are you sure you want to delete this transaction?",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -626,7 +627,7 @@ fun CategoriesScreen(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = if (isTransfer && tx.targetBankName != null) {
-                                    "${tx.bankName} ➔ ${tx.targetBankName}"
+                                    "${tx.bankName} → ${tx.targetBankName}"
                                 } else {
                                     tx.bankName
                                 },
@@ -647,12 +648,12 @@ fun CategoriesScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Rose500),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Hapus", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Delete", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = { transactionToDelete = null }) {
-                    Text("Batal")
+                    Text("Cancel")
                 }
             }
         )
@@ -679,7 +680,7 @@ fun CategoriesScreen(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Pilih Wallet / Rekening",
+                        text = "Select Account / Wallet",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -690,7 +691,7 @@ fun CategoriesScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Pilih dompet untuk melihat detail mutasi transaksi:",
+                        text = "Choose an account to inspect its statement history:",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                         )
@@ -708,9 +709,9 @@ fun CategoriesScreen(
                             }
                             val typeLabel = when (bank.type) {
                                 Bank.TYPE_EWALLET -> "E-Wallet"
-                                Bank.TYPE_CASH -> "Tunai / Cash"
-                                Bank.TYPE_BANK -> "Rekening Bank"
-                                else -> "Dompet"
+                                Bank.TYPE_CASH -> "Cash"
+                                Bank.TYPE_BANK -> "Bank Account"
+                                else -> "Wallet"
                             }
                             Card(
                                 modifier = Modifier
@@ -772,12 +773,14 @@ fun CategoriesScreen(
                                             )
                                         )
                                         Text(
-                                            text = "Lihat Mutasi →",
+                                            text = "View Statement →",
                                             style = MaterialTheme.typography.labelSmall.copy(
                                                 color = Emerald500,
                                                 fontWeight = FontWeight.SemiBold,
                                                 fontSize = 10.sp
-                                            )
+                                            ),
+                                            maxLines = 1,
+                                            softWrap = false
                                         )
                                     }
                                 }
@@ -789,7 +792,7 @@ fun CategoriesScreen(
             confirmButton = {},
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = { showWalletPickerForMutation = false }) {
-                    Text("Batal")
+                    Text("Cancel")
                 }
             }
         )
@@ -1059,7 +1062,7 @@ private fun BudgetingSegmentView(
                                     tint = Emerald500
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Import Bulan Lalu", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Emerald500)
+                                Text("Import Previous", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Emerald500)
                             }
 
                             Button(
@@ -1074,7 +1077,7 @@ private fun BudgetingSegmentView(
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("+ Atur Budget", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text("+ Set Budget", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             }
                         }
                     }
@@ -1117,7 +1120,7 @@ private fun BudgetingSegmentView(
             onSuccess = { count ->
                 Toast.makeText(
                     context,
-                    "Berhasil mengimpor $count budget ke ${viewModel.getBudgetMonthYearDisplay()}!",
+                    "Imported $count budgets to ${viewModel.getBudgetMonthYearDisplay()}!",
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -1142,8 +1145,9 @@ private fun BudgetStatusCardItem(
             .clip(RoundedCornerShape(18.dp))
             .clickable { onClick() },
         shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
@@ -1162,9 +1166,9 @@ private fun BudgetStatusCardItem(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(Color(status.colorHex).copy(alpha = 0.18f)),
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(status.colorHex).copy(alpha = 0.10f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -1256,7 +1260,7 @@ private fun BudgetStatusCardItem(
                 ) {
                     Text(
                         text = if (status.isExceeded) {
-                            "⚠️ Exceeded: +${formatRupiah(status.currentSpent - status.monthlyLimit)}"
+                            "Over by +${formatRupiah(status.currentSpent - status.monthlyLimit)}"
                         } else {
                             "Remaining: ${formatRupiah(status.remainingBudget)}"
                         },
@@ -1293,8 +1297,9 @@ private fun CategoryCardItem(
             .clip(RoundedCornerShape(18.dp))
             .clickable { onClick() },
         shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
@@ -1312,9 +1317,9 @@ private fun CategoryCardItem(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(Color(category.colorHex).copy(alpha = 0.18f)),
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(Color(category.colorHex).copy(alpha = 0.10f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -1458,9 +1463,9 @@ private fun CategoryHistoryDetailView(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(54.dp)
-                        .clip(CircleShape)
-                        .background(Color(category.colorHex).copy(alpha = 0.2f)),
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(category.colorHex).copy(alpha = 0.10f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(

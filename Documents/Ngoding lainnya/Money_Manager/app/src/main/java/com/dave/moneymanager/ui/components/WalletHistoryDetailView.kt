@@ -67,18 +67,18 @@ import java.util.Date
 import java.util.Locale
 
 enum class WalletFlowFilter(val label: String) {
-    ALL("Semua"),
-    OUTFLOW("Dari Wallet (Keluar)"),
-    INFLOW("Ke Wallet (Masuk)")
+    ALL("All"),
+    OUTFLOW("Outflow"),
+    INFLOW("Inflow")
 }
 
 enum class WalletTimeFilterMode(val label: String) {
-    THIS_MONTH("Bulan Ini"),
-    TODAY("Hari Ini"),
-    THIS_WEEK("Minggu Ini"),
-    SPECIFIC_DATE("Pilih Hari"),
-    CUSTOM_RANGE("Rentang Kustom"),
-    ALL("Semua Waktu")
+    THIS_MONTH("This Month"),
+    TODAY("Today"),
+    THIS_WEEK("This Week"),
+    SPECIFIC_DATE("Select Date"),
+    CUSTOM_RANGE("Custom Range"),
+    ALL("All Time")
 }
 
 data class WalletPeriodMetrics(
@@ -296,9 +296,9 @@ fun WalletHistoryDetailView(
         customRangeStart,
         customRangeEnd
     ) {
-        val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.forLanguageTag("id-ID"))
-        val dayFormat = SimpleDateFormat("EEEE, dd MMM yyyy", Locale.forLanguageTag("id-ID"))
-        val shortDayFormat = SimpleDateFormat("dd MMM yyyy", Locale.forLanguageTag("id-ID"))
+        val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
+        val dayFormat = SimpleDateFormat("EEEE, dd MMM yyyy", Locale.US)
+        val shortDayFormat = SimpleDateFormat("dd MMM yyyy", Locale.US)
 
         val cal = Calendar.getInstance()
         cal.set(Calendar.YEAR, selectedYear)
@@ -306,11 +306,11 @@ fun WalletHistoryDetailView(
 
         when (timeMode) {
             WalletTimeFilterMode.THIS_MONTH -> monthFormat.format(Date(cal.timeInMillis))
-            WalletTimeFilterMode.TODAY -> "Hari Ini (" + shortDayFormat.format(Date()) + ")"
-            WalletTimeFilterMode.THIS_WEEK -> "Minggu Ini"
+            WalletTimeFilterMode.TODAY -> "Today (" + shortDayFormat.format(Date()) + ")"
+            WalletTimeFilterMode.THIS_WEEK -> "This Week"
             WalletTimeFilterMode.SPECIFIC_DATE -> dayFormat.format(Date(selectedDateMillis))
             WalletTimeFilterMode.CUSTOM_RANGE -> "${shortDayFormat.format(Date(customRangeStart))} - ${shortDayFormat.format(Date(customRangeEnd))}"
-            WalletTimeFilterMode.ALL -> "Semua Waktu"
+            WalletTimeFilterMode.ALL -> "All Time"
         }
     }
 
@@ -375,14 +375,14 @@ fun WalletHistoryDetailView(
                     endCal.get(Calendar.MONTH),
                     endCal.get(Calendar.DAY_OF_MONTH)
                 )
-                endDateDialog.setTitle("Pilih Tanggal Selesai")
+                endDateDialog.setTitle("Select End Date")
                 endDateDialog.show()
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
             calendar.get(Calendar.DAY_OF_MONTH)
         )
-        startDateDialog.setTitle("Pilih Tanggal Mulai")
+        startDateDialog.setTitle("Select Start Date")
         startDateDialog.show()
     }
 
@@ -439,9 +439,9 @@ fun WalletHistoryDetailView(
                     )
                     val typeStr = when (wallet.type) {
                         Bank.TYPE_EWALLET -> "E-Wallet"
-                        Bank.TYPE_CASH -> "Tunai / Cash"
-                        Bank.TYPE_BANK -> "Rekening Bank"
-                        else -> "Dompet"
+                        Bank.TYPE_CASH -> "Cash"
+                        Bank.TYPE_BANK -> "Bank Account"
+                        else -> "Wallet"
                     }
                     Text(
                         text = typeStr,
@@ -460,7 +460,7 @@ fun WalletHistoryDetailView(
             ) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Saldo Saat Ini",
+                        text = "Current Balance",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontSize = 9.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
@@ -480,14 +480,14 @@ fun WalletHistoryDetailView(
         Spacer(modifier = Modifier.height(10.dp))
 
         val grouped = remember(filteredTransactions) {
-            val fullDateFormat = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.forLanguageTag("id-ID"))
+            val fullDateFormat = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.US)
             val todayFormat = SimpleDateFormat("yyyyMMdd", Locale.US)
             val todayStr = todayFormat.format(Date())
 
             filteredTransactions.groupBy { tx ->
                 val txDateStr = todayFormat.format(Date(tx.timestamp))
                 if (txDateStr == todayStr) {
-                    "Hari Ini - " + fullDateFormat.format(Date(tx.timestamp))
+                    "Today • " + fullDateFormat.format(Date(tx.timestamp))
                 } else {
                     fullDateFormat.format(Date(tx.timestamp))
                 }
@@ -513,7 +513,7 @@ fun WalletHistoryDetailView(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Ringkasan Mutasi",
+                                text = "Statement Summary",
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                             )
                             Box(
@@ -549,7 +549,7 @@ fun WalletHistoryDetailView(
                                     )
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
-                                        text = "Ke Wallet",
+                                        text = "Inflow",
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             color = Emerald500,
                                             fontWeight = FontWeight.Bold
@@ -567,7 +567,7 @@ fun WalletHistoryDetailView(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "${metrics.inflowCount} transaksi",
+                                    text = "${metrics.inflowCount} transactions",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                         fontSize = 10.sp
@@ -588,7 +588,7 @@ fun WalletHistoryDetailView(
                                     )
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Text(
-                                        text = "Dari Wallet",
+                                        text = "Outflow",
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             color = Rose500,
                                             fontWeight = FontWeight.Bold
@@ -606,7 +606,7 @@ fun WalletHistoryDetailView(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "${metrics.outflowCount} transaksi",
+                                    text = "${metrics.outflowCount} transactions",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                         fontSize = 10.sp
@@ -619,7 +619,7 @@ fun WalletHistoryDetailView(
                                 horizontalAlignment = Alignment.End
                             ) {
                                 Text(
-                                    text = "Arus Kas Bersih",
+                                    text = "Net Cash Flow",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                         fontWeight = FontWeight.Medium
@@ -638,7 +638,7 @@ fun WalletHistoryDetailView(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "${metrics.totalCount} mutasi",
+                                    text = "${metrics.totalCount} entries",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                         fontSize = 10.sp
@@ -727,7 +727,7 @@ fun WalletHistoryDetailView(
                                 },
                                 modifier = Modifier.size(32.dp)
                             ) {
-                                Icon(Icons.Default.ChevronLeft, contentDescription = "Sebelumnya")
+                                Icon(Icons.Default.ChevronLeft, contentDescription = "Previous")
                             }
 
                             Row(
@@ -745,7 +745,7 @@ fun WalletHistoryDetailView(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.CalendarMonth,
-                                    contentDescription = "Pilih Tanggal",
+                                    contentDescription = "Select Date",
                                     tint = Emerald500,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -785,7 +785,7 @@ fun WalletHistoryDetailView(
                                 },
                                 modifier = Modifier.size(32.dp)
                             ) {
-                                Icon(Icons.Default.ChevronRight, contentDescription = "Selanjutnya")
+                                Icon(Icons.Default.ChevronRight, contentDescription = "Next")
                             }
                         }
                     }
@@ -811,7 +811,7 @@ fun WalletHistoryDetailView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Semua (${metrics.totalCount})",
+                            text = "All (${metrics.totalCount})",
                             fontWeight = FontWeight.Bold,
                             color = if (flowFilter == WalletFlowFilter.ALL) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
@@ -828,7 +828,7 @@ fun WalletHistoryDetailView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Dari Wallet (${metrics.outflowCount})",
+                            text = "Outflow (${metrics.outflowCount})",
                             fontWeight = FontWeight.Bold,
                             color = if (flowFilter == WalletFlowFilter.OUTFLOW) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
@@ -845,7 +845,7 @@ fun WalletHistoryDetailView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Ke Wallet (${metrics.inflowCount})",
+                            text = "Inflow (${metrics.inflowCount})",
                             fontWeight = FontWeight.Bold,
                             color = if (flowFilter == WalletFlowFilter.INFLOW) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp
@@ -863,11 +863,11 @@ fun WalletHistoryDetailView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Riwayat Mutasi",
+                        text = "Statement History",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        text = "${filteredTransactions.size} transaksi ditemukan",
+                        text = "${filteredTransactions.size} transactions",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -898,17 +898,17 @@ fun WalletHistoryDetailView(
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = "Tidak Ada Transaksi",
+                                text = "No Transactions Found",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             val flowDesc = when (flowFilter) {
-                                WalletFlowFilter.ALL -> "pengeluaran maupun pemasukan"
-                                WalletFlowFilter.OUTFLOW -> "pengeluaran atau transfer keluar (dari wallet)"
-                                WalletFlowFilter.INFLOW -> "pemasukan atau transfer masuk (ke wallet)"
+                                WalletFlowFilter.ALL -> "inflow or outflow transactions"
+                                WalletFlowFilter.OUTFLOW -> "expenses or outgoing transfers"
+                                WalletFlowFilter.INFLOW -> "income or incoming transfers"
                             }
                             Text(
-                                text = "Belum ada transaksi $flowDesc untuk ${wallet.name} pada periode yang dipilih.",
+                                text = "No $flowDesc recorded for ${wallet.name} during the selected period.",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                     textAlign = TextAlign.Center
@@ -933,9 +933,13 @@ fun WalletHistoryDetailView(
                     items(txList) { tx ->
                         val shieldStatus = viewModel.getShieldStatusForTransaction(tx.id, tx.note, tx.category)
                         val editHistories = transactionEditHistories[tx.id] ?: emptyList()
+                        val shieldAmount = viewModel.getShieldAmountForTransaction(tx)
+                        val netAmount = viewModel.getNetExpenseAmount(tx)
                         TransactionItem(
                             transaction = tx,
                             shieldStatus = shieldStatus,
+                            shieldAmount = shieldAmount,
+                            netExpenseAmount = netAmount,
                             editHistories = editHistories,
                             expenseCategories = expenseCategories,
                             incomeCategories = incomeCategories,

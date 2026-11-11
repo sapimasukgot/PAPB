@@ -82,7 +82,10 @@ fun SearchableContactDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Box(
                         modifier = Modifier
                             .size(36.dp)
@@ -100,17 +103,17 @@ fun SearchableContactDialog(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            text = "Pilih Kontak Shield",
+                            text = "Select Shield Contact",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            text = "${contacts.size} kontak pernah tercatat",
+                            text = "${contacts.size} saved contacts",
                             style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                         )
                     }
                 }
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Tutup")
+                    Icon(Icons.Default.Close, contentDescription = "Close")
                 }
             }
         },
@@ -122,14 +125,14 @@ fun SearchableContactDialog(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Ketik untuk mencari kontak...") },
+                    placeholder = { Text("Search contact name...") },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = null, tint = Emerald500)
                     },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Hapus", modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
                             }
                         }
                     },
@@ -157,14 +160,14 @@ fun SearchableContactDialog(
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(
-                                    text = "Gunakan \"${searchQuery.trim()}\" (Teman Baru)",
+                                    text = "Use \"${searchQuery.trim()}\" (New Contact)",
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = Emerald500
                                     )
                                 )
                                 Text(
-                                    text = "Nama akan disimpan otomatis untuk dipilih berikutnya",
+                                    text = "Name will be saved automatically for future selection",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                         fontSize = 11.sp
@@ -183,7 +186,7 @@ fun SearchableContactDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Belum ada kontak yang pernah shield.",
+                            text = "No saved Shield contacts yet.",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
@@ -237,7 +240,7 @@ fun SearchableContactDialog(
 
                                         if (activeShield != null) {
                                             Text(
-                                                text = "Hutang aktif: Rp ${formatter.format(activeShield.amount)}",
+                                                text = "Active balance: Rp ${formatter.format(activeShield.amount)}",
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     color = Amber500,
                                                     fontWeight = FontWeight.SemiBold,
@@ -246,7 +249,7 @@ fun SearchableContactDialog(
                                             )
                                         } else if (contact.avatarUri != null) {
                                             Text(
-                                                text = "Foto profil tersedia",
+                                                text = "Profile photo available",
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     color = Emerald500,
                                                     fontSize = 11.sp
@@ -254,7 +257,7 @@ fun SearchableContactDialog(
                                             )
                                         } else {
                                             Text(
-                                                text = "Kontak tersimpan",
+                                                text = "Saved contact",
                                                 style = MaterialTheme.typography.labelSmall.copy(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     fontSize = 11.sp
@@ -271,7 +274,7 @@ fun SearchableContactDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text("Cancel")
             }
         }
     )

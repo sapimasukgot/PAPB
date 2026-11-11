@@ -32,8 +32,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -93,6 +95,7 @@ import com.dave.moneymanager.data.model.ShieldContact
 import com.dave.moneymanager.data.model.ShieldEntry
 import com.dave.moneymanager.data.model.ShieldWalletDeduction
 import com.dave.moneymanager.data.model.Transaction
+import com.dave.moneymanager.data.model.TransactionCategory
 import com.dave.moneymanager.data.model.ShieldHistoryItem
 import com.dave.moneymanager.ui.components.CalculatorDialog
 import com.dave.moneymanager.ui.components.SearchableContactDialog
@@ -197,7 +200,7 @@ fun ShieldAvatarView(
             ) {
                 Icon(
                     imageVector = Icons.Default.CameraAlt,
-                    contentDescription = "Ganti Foto",
+                    contentDescription = "Change Photo",
                     tint = Color.White,
                     modifier = Modifier.size((size.value * 0.24f).dp)
                 )
@@ -207,14 +210,14 @@ fun ShieldAvatarView(
 }
 
 private enum class ShieldScreenMode(val title: String) {
-    TALANGAN("Talangan Teman"),
-    MY_DEBT("My Debt (Hutang Saya)")
+    RECEIVABLES("Receivables"),
+    MY_DEBT("My Debt")
 }
 
 private enum class ShieldTabFilter(val title: String) {
-    UNPAID("Belum Lunas"),
-    SETTLED("Sudah Lunas"),
-    ALL("Semua")
+    UNPAID("Unpaid"),
+    SETTLED("Settled"),
+    ALL("All")
 }
 
 @Composable
@@ -224,7 +227,7 @@ fun ShieldScreen(
 ) {
     val context = LocalContext.current
 
-    var screenMode by remember { mutableStateOf(ShieldScreenMode.TALANGAN) }
+    var screenMode by remember { mutableStateOf(ShieldScreenMode.RECEIVABLES) }
 
     val shields by viewModel.shields.collectAsState()
     val banks by viewModel.banks.collectAsState()
@@ -238,6 +241,7 @@ fun ShieldScreen(
     val shieldHistories by viewModel.shieldHistories.collectAsState()
     val shieldContacts by viewModel.shieldContacts.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
+    val expenseCategories by viewModel.expenseCategories.collectAsState()
 
     val myDebts by viewModel.myDebts.collectAsState()
     val totalUnsettledMyDebt by viewModel.totalUnsettledMyDebtAmount.collectAsState()
@@ -271,7 +275,7 @@ fun ShieldScreen(
             val savedPath = saveShieldAvatar(context, uri, target.friendName)
             if (savedPath != null) {
                 viewModel.updateShieldAvatar(target.id, target.friendName, savedPath)
-                Toast.makeText(context, "Foto profil ${target.friendName} berhasil diubah!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Profile photo for ${target.friendName} updated!", Toast.LENGTH_SHORT).show()
             }
         }
         shieldForPhotoPick = null
@@ -285,7 +289,7 @@ fun ShieldScreen(
             val savedPath = saveShieldAvatar(context, uri, target.personName)
             if (savedPath != null) {
                 viewModel.updateMyDebtAvatar(target.id, target.personName, savedPath)
-                Toast.makeText(context, "Foto profil ${target.personName} berhasil diubah!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Profile photo for ${target.personName} updated!", Toast.LENGTH_SHORT).show()
             }
         }
         myDebtForPhotoPick = null
@@ -352,14 +356,14 @@ fun ShieldScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Shield Tracker",
+                            text = "Shield & Debt Tracker",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = 22.sp
+                                fontSize = 20.sp
                             )
                         )
                         Text(
-                            text = "Lacak talangan teman & kelola hutang Anda",
+                            text = "Track friend receivables & manage your debts",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                                 fontSize = 12.sp
@@ -383,14 +387,14 @@ fun ShieldScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) (if (mode == ShieldScreenMode.TALANGAN) Emerald500 else Rose500) else Color.Transparent)
+                                .background(if (isSelected) (if (mode == ShieldScreenMode.RECEIVABLES) Emerald500 else Rose500) else Color.Transparent)
                                 .clickable { screenMode = mode }
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = if (mode == ShieldScreenMode.TALANGAN) Icons.Default.Shield else Icons.Default.Payments,
+                                    imageVector = if (mode == ShieldScreenMode.RECEIVABLES) Icons.Default.Shield else Icons.Default.Payments,
                                     contentDescription = null,
                                     tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(16.dp)
@@ -400,7 +404,9 @@ fun ShieldScreen(
                                     text = mode.title,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                     color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 13.sp
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }
@@ -408,7 +414,7 @@ fun ShieldScreen(
                 }
             }
 
-            if (screenMode == ShieldScreenMode.TALANGAN) {
+            if (screenMode == ShieldScreenMode.RECEIVABLES) {
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -422,12 +428,12 @@ fun ShieldScreen(
                                 .clickable {
                                     currentTab = if (currentTab == ShieldTabFilter.UNPAID) ShieldTabFilter.ALL else ShieldTabFilter.UNPAID
                                 },
-                            shape = RoundedCornerShape(18.dp),
-                            border = if (isUnpaidSelected) BorderStroke(2.dp, Rose500) else null,
+                            shape = RoundedCornerShape(16.dp),
+                            border = if (isUnpaidSelected) BorderStroke(1.5.dp, Rose500) else BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (isUnpaidSelected) Rose500.copy(alpha = 0.22f) else Rose500.copy(alpha = 0.12f)
+                                containerColor = MaterialTheme.colorScheme.surface
                             ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = if (isUnpaidSelected) 4.dp else 1.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -435,22 +441,22 @@ fun ShieldScreen(
                                         modifier = Modifier
                                             .size(26.dp)
                                             .clip(CircleShape)
-                                            .background(Rose500),
+                                            .background(Rose500.copy(alpha = 0.12f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.HourglassTop,
                                             contentDescription = null,
-                                            tint = Color.White,
+                                            tint = Rose500,
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Belum Lunas",
+                                        text = "Unpaid",
                                         style = MaterialTheme.typography.labelMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = Rose500
+                                            color = if (isUnpaidSelected) Rose500 else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     )
                                 }
@@ -465,7 +471,7 @@ fun ShieldScreen(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "$unsettledCount orang belum bayar",
+                                    text = "$unsettledCount pending people",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                                         fontSize = 11.sp
@@ -482,12 +488,12 @@ fun ShieldScreen(
                                 .clickable {
                                     currentTab = if (currentTab == ShieldTabFilter.SETTLED) ShieldTabFilter.ALL else ShieldTabFilter.SETTLED
                                 },
-                            shape = RoundedCornerShape(18.dp),
-                            border = if (isSettledSelected) BorderStroke(2.dp, Emerald500) else null,
+                            shape = RoundedCornerShape(16.dp),
+                            border = if (isSettledSelected) BorderStroke(1.5.dp, Emerald500) else BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (isSettledSelected) Emerald500.copy(alpha = 0.22f) else Emerald500.copy(alpha = 0.12f)
+                                containerColor = MaterialTheme.colorScheme.surface
                             ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = if (isSettledSelected) 4.dp else 1.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -495,22 +501,22 @@ fun ShieldScreen(
                                         modifier = Modifier
                                             .size(26.dp)
                                             .clip(CircleShape)
-                                            .background(Emerald500),
+                                            .background(Emerald500.copy(alpha = 0.12f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.CheckCircle,
                                             contentDescription = null,
-                                            tint = Color.White,
+                                            tint = Emerald500,
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Sudah Lunas",
+                                        text = "Settled",
                                         style = MaterialTheme.typography.labelMedium.copy(
                                             fontWeight = FontWeight.Bold,
-                                            color = Emerald500
+                                            color = if (isSettledSelected) Emerald500 else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     )
                                 }
@@ -525,7 +531,7 @@ fun ShieldScreen(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Berhasil dilunasi",
+                                    text = "Paid back",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                                         fontSize = 11.sp
@@ -541,7 +547,7 @@ fun ShieldScreen(
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            placeholder = { Text("Cari nama teman atau catatan...") },
+                            placeholder = { Text("Search friend name or notes...") },
                             leadingIcon = {
                                 Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
@@ -611,12 +617,12 @@ fun ShieldScreen(
                             }
                             Spacer(modifier = Modifier.height(14.dp))
                             Text(
-                                text = if (searchQuery.isNotEmpty()) "Tidak ada hasil pencarian" else "Belum ada talangan teman",
+                                text = if (searchQuery.isNotEmpty()) "No matching results" else "No friend receivables yet",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = if (searchQuery.isNotEmpty()) "Coba kata kunci lain" else "Saat mencatat pengeluaran, aktifkan opsi Shield!",
+                                text = if (searchQuery.isNotEmpty()) "Try another search term" else "Enable the Shield option when recording shared expenses.",
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)),
                                 fontSize = 12.sp
                             )
@@ -681,7 +687,7 @@ fun ShieldScreen(
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Belum Dibayar",
+                                        text = "Unpaid",
                                         style = MaterialTheme.typography.labelMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = Rose500
@@ -699,7 +705,7 @@ fun ShieldScreen(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "$unsettledMyDebtCount hutang belum lunas",
+                                    text = "$unsettledMyDebtCount active debts",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                                         fontSize = 11.sp
@@ -741,7 +747,7 @@ fun ShieldScreen(
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Sudah Lunas",
+                                        text = "Settled",
                                         style = MaterialTheme.typography.labelMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = Emerald500
@@ -759,7 +765,7 @@ fun ShieldScreen(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Hutang terselesaikan",
+                                    text = "Debts paid off",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                                         fontSize = 11.sp
@@ -775,7 +781,7 @@ fun ShieldScreen(
                         OutlinedTextField(
                             value = myDebtSearchQuery,
                             onValueChange = { myDebtSearchQuery = it },
-                            placeholder = { Text("Cari pemberi pinjaman atau catatan...") },
+                            placeholder = { Text("Search lender name or notes...") },
                             leadingIcon = {
                                 Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             },
@@ -845,12 +851,12 @@ fun ShieldScreen(
                             }
                             Spacer(modifier = Modifier.height(14.dp))
                             Text(
-                                text = if (myDebtSearchQuery.isNotEmpty()) "Tidak ada hasil pencarian" else "Belum ada catatan hutang",
+                                text = if (myDebtSearchQuery.isNotEmpty()) "No matching results" else "No debt records yet",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = if (myDebtSearchQuery.isNotEmpty()) "Coba kata kunci lain" else "Tekan 'Catat Hutang' di bawah untuk mencatat hutang Anda.",
+                                text = if (myDebtSearchQuery.isNotEmpty()) "Try another search term" else "Tap 'Add Debt' below to record a debt you owe.",
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)),
                                 fontSize = 12.sp
                             )
@@ -863,8 +869,32 @@ fun ShieldScreen(
                             formattedAmount = viewModel.formatRupiah(item.amount),
                             onChangeAvatar = { myDebtForAvatarOptions = item },
                             onEdit = { myDebtToEdit = item },
-                            onSettle = { myDebtToSettle = item },
-                            onUnsettle = { viewModel.unsettleMyDebt(item.id) },
+                            onSettle = {
+                                if (item.settledBankId != null) {
+                                    viewModel.settleMyDebt(
+                                        debtId = item.id,
+                                        bankId = item.settledBankId,
+                                        bankName = item.settledBankName,
+                                        category = item.category,
+                                        deductWallet = true
+                                    )
+                                    Toast.makeText(
+                                        context,
+                                        "Debt to ${item.personName} settled! Deducted from ${item.settledBankName ?: "Wallet"} • ${item.category}",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    myDebtToSettle = item
+                                }
+                            },
+                            onUnsettle = {
+                                viewModel.unsettleMyDebt(item.id)
+                                Toast.makeText(
+                                    context,
+                                    "Settlement undone & balance restored",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
                             onDelete = { myDebtToDelete = item }
                         )
                     }
@@ -878,7 +908,7 @@ fun ShieldScreen(
 
         FloatingActionButton(
             onClick = {
-                if (screenMode == ShieldScreenMode.TALANGAN) {
+                if (screenMode == ShieldScreenMode.RECEIVABLES) {
                     showAddDialog = true
                 } else {
                     showAddMyDebtDialog = true
@@ -887,7 +917,7 @@ fun ShieldScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(20.dp),
-            containerColor = if (screenMode == ShieldScreenMode.TALANGAN) Emerald500 else Rose500,
+            containerColor = if (screenMode == ShieldScreenMode.RECEIVABLES) Emerald500 else Rose500,
             contentColor = Color.White,
             shape = RoundedCornerShape(16.dp)
         ) {
@@ -898,7 +928,7 @@ fun ShieldScreen(
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    if (screenMode == ShieldScreenMode.TALANGAN) "Catat Shield" else "Catat Hutang",
+                    if (screenMode == ShieldScreenMode.RECEIVABLES) "Add Shield" else "Add Debt",
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -923,7 +953,7 @@ fun ShieldScreen(
                     )
                     val fmt = NumberFormat.getNumberInstance(Locale.US)
                     val walletSummary = walletDeductions.joinToString(", ") { "${it.bankName}: Rp ${fmt.format(it.amount)}" }
-                    Toast.makeText(context, "Shield $friendName dicatat (dipotong dari $walletSummary)!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Shield for $friendName recorded (deducted from $walletSummary)!", Toast.LENGTH_LONG).show()
                 } else {
                     viewModel.addShield(
                         friendName = friendName,
@@ -932,7 +962,7 @@ fun ShieldScreen(
                         timestamp = timestamp,
                         avatarUri = avatarUri
                     )
-                    Toast.makeText(context, "Shield $friendName berhasil dicatat!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Shield for $friendName recorded!", Toast.LENGTH_SHORT).show()
                 }
                 showAddDialog = false
             }
@@ -951,10 +981,10 @@ fun ShieldScreen(
                     viewModel.updateShieldWithWallets(updatedEntry, walletDeductions)
                     val fmt = NumberFormat.getNumberInstance(Locale.US)
                     val walletSummary = walletDeductions.joinToString(", ") { "${it.bankName}: Rp ${fmt.format(it.amount)}" }
-                    Toast.makeText(context, "Catatan shield ${updatedEntry.friendName} berhasil diubah! Dipotong dari $walletSummary", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Shield for ${updatedEntry.friendName} updated! Deducted from $walletSummary", Toast.LENGTH_LONG).show()
                 } else {
                     viewModel.updateShield(updatedEntry)
-                    Toast.makeText(context, "Catatan shield ${updatedEntry.friendName} berhasil diubah!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Shield for ${updatedEntry.friendName} updated!", Toast.LENGTH_SHORT).show()
                 }
                 shieldToEdit = null
             },
@@ -970,9 +1000,9 @@ fun ShieldScreen(
                     updatedNote = updatedNote
                 )
                 shieldToEdit = null
-                val methodStr = if (isTransfer) "ditransfer ke $bankName (dicatat pemasukan)" else "dibayarin hal lain"
+                val methodStr = if (isTransfer) "transferred to $bankName (recorded as income)" else "offset via item/service"
                 val fmt = NumberFormat.getNumberInstance(Locale.US)
-                Toast.makeText(context, "Hutang ${target.friendName} dipotong Rp ${fmt.format(deductionAmount)} ($methodStr)!", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "${target.friendName}'s balance reduced by Rp ${fmt.format(deductionAmount)} ($methodStr)!", Toast.LENGTH_LONG).show()
             }
         )
     }
@@ -991,7 +1021,7 @@ fun ShieldScreen(
                     recordIncome = addToBalance
                 )
                 shieldToSettle = null
-                Toast.makeText(context, "Hutang ${target.friendName} berhasil dilunasi!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "${target.friendName}'s Shield settled!", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -1000,23 +1030,23 @@ fun ShieldScreen(
         val target = shieldToDelete!!
         AlertDialog(
             onDismissRequest = { shieldToDelete = null },
-            title = { Text("Hapus Catatan Talangan?") },
-            text = { Text("Catatan hutang ${target.friendName} sebesar ${viewModel.formatRupiah(target.amount)} akan dihapus.") },
+            title = { Text("Delete Shield Record?") },
+            text = { Text("Delete ${target.friendName}'s receivable of ${viewModel.formatRupiah(target.amount)}?") },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.deleteShield(target.id)
                         shieldToDelete = null
-                        Toast.makeText(context, "Catatan talangan dihapus", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Shield record deleted", Toast.LENGTH_SHORT).show()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Rose500)
                 ) {
-                    Text("Hapus", fontWeight = FontWeight.Bold)
+                    Text("Delete", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { shieldToDelete = null }) {
-                    Text("Batal")
+                    Text("Cancel")
                 }
             }
         )
@@ -1031,7 +1061,7 @@ fun ShieldScreen(
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("Shield Reminder", message)
                 clipboard.setPrimaryClip(clip)
-                Toast.makeText(context, "Pesan disalin ke clipboard!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Reminder copied to clipboard!", Toast.LENGTH_SHORT).show()
                 shieldToRemind = null
             },
             onShare = { message ->
@@ -1040,7 +1070,7 @@ fun ShieldScreen(
                     putExtra(Intent.EXTRA_TEXT, message)
                     type = "text/plain"
                 }
-                val shareIntent = Intent.createChooser(sendIntent, "Ingatkan ${target.friendName} via")
+                val shareIntent = Intent.createChooser(sendIntent, "Remind ${target.friendName} via")
                 context.startActivity(shareIntent)
                 shieldToRemind = null
             }
@@ -1061,7 +1091,7 @@ fun ShieldScreen(
             },
             title = {
                 Text(
-                    text = "Foto Profil ${target.friendName}",
+                    text = "Profile Photo: ${target.friendName}",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
@@ -1084,7 +1114,7 @@ fun ShieldScreen(
                     )
                     if (target.avatarUri != null) {
                         Text(
-                            text = "Ketuk foto untuk melihat layar penuh",
+                            text = "Tap photo to view full screen",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = Emerald500,
                                 fontWeight = FontWeight.SemiBold,
@@ -1094,9 +1124,9 @@ fun ShieldScreen(
                     }
                     Text(
                         text = if (target.avatarUri != null)
-                            "Ganti atau hapus foto profil untuk ${target.friendName}."
+                            "Change or remove profile photo for ${target.friendName}."
                         else
-                            "Pilih foto profil dari galeri untuk ${target.friendName}.",
+                            "Choose a profile photo from your gallery for ${target.friendName}.",
                         style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
@@ -1114,7 +1144,7 @@ fun ShieldScreen(
                 ) {
                     Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(if (target.avatarUri != null) "Ganti Foto" else "Pilih Foto")
+                    Text(if (target.avatarUri != null) "Change Photo" else "Choose Photo")
                 }
             },
             dismissButton = {
@@ -1123,16 +1153,16 @@ fun ShieldScreen(
                         TextButton(
                             onClick = {
                                 viewModel.updateShieldAvatar(target.id, target.friendName, null)
-                                Toast.makeText(context, "Foto profil dihapus", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Profile photo removed", Toast.LENGTH_SHORT).show()
                                 shieldForAvatarOptions = null
                             },
                             colors = ButtonDefaults.textButtonColors(contentColor = Rose500)
                         ) {
-                            Text("Hapus")
+                            Text("Remove")
                         }
                     }
                     TextButton(onClick = { shieldForAvatarOptions = null }) {
-                        Text("Batal")
+                        Text("Cancel")
                     }
                 }
             }
@@ -1162,7 +1192,7 @@ fun ShieldScreen(
                 if (bitmap != null) {
                     Image(
                         bitmap = bitmap,
-                        contentDescription = "Foto Profil",
+                        contentDescription = "Profile Photo",
                         modifier = Modifier
                             .fillMaxWidth(0.92f)
                             .clip(RoundedCornerShape(16.dp)),
@@ -1170,7 +1200,7 @@ fun ShieldScreen(
                     )
                 } else {
                     Text(
-                        text = "Foto tidak ditemukan",
+                        text = "Photo not found",
                         color = Color.White,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -1186,7 +1216,7 @@ fun ShieldScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Tutup",
+                        contentDescription = "Close",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)
                     )
@@ -1199,11 +1229,22 @@ fun ShieldScreen(
         AddEditMyDebtDialog(
             contacts = shieldContacts,
             existingShields = shields,
+            banks = banks,
+            expenseCategories = expenseCategories,
             onDismiss = { showAddMyDebtDialog = false },
-            onSave = { creditorName, amount, note, timestamp, avatarUri ->
-                viewModel.addMyDebt(creditorName, amount, note, timestamp, avatarUri)
+            onSave = { creditorName, amount, note, timestamp, avatarUri, bankId, bankName, category ->
+                viewModel.addMyDebt(
+                    personName = creditorName,
+                    amount = amount,
+                    note = note,
+                    timestamp = timestamp,
+                    avatarUri = avatarUri,
+                    bankId = bankId,
+                    bankName = bankName,
+                    category = category
+                )
                 showAddMyDebtDialog = false
-                Toast.makeText(context, "Hutang ke $creditorName berhasil dicatat!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Debt to $creditorName recorded!", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -1214,45 +1255,47 @@ fun ShieldScreen(
             entry = target,
             contacts = shieldContacts,
             existingShields = shields,
+            banks = banks,
+            expenseCategories = expenseCategories,
             onDismiss = { myDebtToEdit = null },
-            onSave = { personName, amount, note, timestamp, avatarUri ->
+            onSave = { personName, amount, note, timestamp, avatarUri, bankId, bankName, category ->
                 viewModel.updateMyDebt(
                     target.copy(
                         personName = personName,
                         amount = amount,
                         note = note,
                         timestamp = timestamp,
+                        settledBankId = bankId,
+                        settledBankName = bankName,
+                        category = category,
                         avatarUri = avatarUri
                     )
                 )
                 myDebtToEdit = null
-                Toast.makeText(context, "Catatan hutang ke $personName berhasil diubah!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Debt to $personName updated!", Toast.LENGTH_SHORT).show()
             }
         )
     }
 
     if (myDebtToSettle != null) {
         val target = myDebtToSettle!!
-        AlertDialog(
-            onDismissRequest = { myDebtToSettle = null },
-            title = { Text("Tandai Hutang Lunas?") },
-            text = { Text("Tandai hutang ke ${target.personName} sebesar ${viewModel.formatRupiah(target.amount)} sudah lunas?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.settleMyDebt(target.id)
-                        myDebtToSettle = null
-                        Toast.makeText(context, "Hutang ke ${target.personName} berhasil dilunasi!", Toast.LENGTH_SHORT).show()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Emerald500)
-                ) {
-                    Text("Ya, Sudah Lunas", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { myDebtToSettle = null }) {
-                    Text("Batal")
-                }
+        SettleMyDebtDialog(
+            entry = target,
+            banks = banks,
+            expenseCategories = expenseCategories,
+            formatRupiah = { viewModel.formatRupiah(it) },
+            onDismiss = { myDebtToSettle = null },
+            onConfirm = { bankId, bankName, category, deductWallet ->
+                viewModel.settleMyDebt(
+                    debtId = target.id,
+                    bankId = bankId,
+                    bankName = bankName,
+                    category = category,
+                    deductWallet = deductWallet
+                )
+                myDebtToSettle = null
+                val walletMsg = if (deductWallet && bankName != null) " (Deducted from $bankName • $category)" else ""
+                Toast.makeText(context, "Debt to ${target.personName} settled!$walletMsg", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -1261,23 +1304,23 @@ fun ShieldScreen(
         val target = myDebtToDelete!!
         AlertDialog(
             onDismissRequest = { myDebtToDelete = null },
-            title = { Text("Hapus Catatan Hutang?") },
-            text = { Text("Catatan hutang ke ${target.personName} sebesar ${viewModel.formatRupiah(target.amount)} akan dihapus.") },
+            title = { Text("Delete Debt Record?") },
+            text = { Text("Delete your debt to ${target.personName} of ${viewModel.formatRupiah(target.amount)}?") },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.deleteMyDebt(target.id)
                         myDebtToDelete = null
-                        Toast.makeText(context, "Catatan hutang dihapus", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Debt record deleted", Toast.LENGTH_SHORT).show()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Rose500)
                 ) {
-                    Text("Hapus", fontWeight = FontWeight.Bold)
+                    Text("Delete", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { myDebtToDelete = null }) {
-                    Text("Batal")
+                    Text("Cancel")
                 }
             }
         )
@@ -1297,7 +1340,7 @@ fun ShieldScreen(
             },
             title = {
                 Text(
-                    text = "Foto Profil ${target.personName}",
+                    text = "Profile Photo: ${target.personName}",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
@@ -1321,7 +1364,7 @@ fun ShieldScreen(
                         }
                     )
                     Text(
-                        text = "Pilih foto dari galeri untuk memudahkan mengenali orang ini.",
+                        text = "Choose a photo from your gallery to easily identify this person.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1340,7 +1383,7 @@ fun ShieldScreen(
                 ) {
                     Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(if (target.avatarUri == null) "Pilih Foto" else "Ganti Foto")
+                    Text(if (target.avatarUri == null) "Choose Photo" else "Change Photo")
                 }
             },
             dismissButton = {
@@ -1349,16 +1392,16 @@ fun ShieldScreen(
                         TextButton(
                             onClick = {
                                 viewModel.updateMyDebtAvatar(target.id, target.personName, null)
-                                Toast.makeText(context, "Foto profil dihapus", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Profile photo removed", Toast.LENGTH_SHORT).show()
                                 myDebtForAvatarOptions = null
                             },
                             colors = ButtonDefaults.textButtonColors(contentColor = Rose500)
                         ) {
-                            Text("Hapus")
+                            Text("Remove")
                         }
                     }
                     TextButton(onClick = { myDebtForAvatarOptions = null }) {
-                        Text("Batal")
+                        Text("Cancel")
                     }
                 }
             }
@@ -1376,7 +1419,7 @@ private fun MyDebtItemCard(
     onUnsettle: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID")) }
+    val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.US) }
     val formattedDate = remember(entry.timestamp) { dateFormat.format(Date(entry.timestamp)) }
     val isSettled = entry.isSettled
 
@@ -1443,7 +1486,7 @@ private fun MyDebtItemCard(
                         color = if (isSettled) Emerald500.copy(alpha = 0.12f) else Rose500.copy(alpha = 0.12f)
                     ) {
                         Text(
-                            text = if (isSettled) "Lunas" else "Belum Dibayar",
+                            text = if (isSettled) "Settled" else "Unpaid",
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
@@ -1455,8 +1498,76 @@ private fun MyDebtItemCard(
                 }
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (entry.category.isNotBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Blue500.copy(alpha = 0.12f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Category,
+                                contentDescription = null,
+                                tint = Blue500,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = entry.category,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Blue500,
+                                    fontSize = 11.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                if (!entry.settledBankName.isNullOrBlank()) {
+                    val walletTint = if (isSettled) Emerald500 else Amber500
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = walletTint.copy(alpha = 0.12f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountBalanceWallet,
+                                contentDescription = null,
+                                tint = walletTint,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isSettled) "Paid via ${entry.settledBankName}" else "Pay via ${entry.settledBankName}",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = walletTint,
+                                    fontSize = 11.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+
             if (entry.note.isNotBlank()) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -1492,7 +1603,7 @@ private fun MyDebtItemCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Tandai Lunas", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Mark Settled", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 } else {
                     OutlinedButton(
@@ -1507,7 +1618,7 @@ private fun MyDebtItemCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Batal Lunas", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Amber500)
+                        Text("Undo Settled", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Amber500)
                     }
                 }
 
@@ -1519,7 +1630,7 @@ private fun MyDebtItemCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Hutang",
+                        contentDescription = "Edit Debt",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
@@ -1531,7 +1642,7 @@ private fun MyDebtItemCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
-                        contentDescription = "Hapus Hutang",
+                        contentDescription = "Delete Debt",
                         tint = Rose500,
                         modifier = Modifier.size(18.dp)
                     )
@@ -1541,14 +1652,18 @@ private fun MyDebtItemCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddEditMyDebtDialog(
     entry: MyDebtEntry? = null,
     contacts: List<ShieldContact>,
     existingShields: List<ShieldEntry> = emptyList(),
+    banks: List<Bank> = emptyList(),
+    expenseCategories: List<TransactionCategory> = emptyList(),
     onDismiss: () -> Unit,
-    onSave: (creditorName: String, amount: Double, note: String, timestamp: Long, avatarUri: String?) -> Unit
+    onSave: (creditorName: String, amount: Double, note: String, timestamp: Long, avatarUri: String?, bankId: Long?, bankName: String?, category: String) -> Unit
 ) {
+    val formatter = remember { NumberFormat.getNumberInstance(Locale.US) }
     var creditorName by remember { mutableStateOf(entry?.personName ?: "") }
     var amountText by remember {
         mutableStateOf(
@@ -1560,6 +1675,32 @@ private fun AddEditMyDebtDialog(
     var note by remember { mutableStateOf(entry?.note ?: "") }
     val timestamp = remember { entry?.timestamp ?: System.currentTimeMillis() }
     var customAvatarUri by remember { mutableStateOf(entry?.avatarUri) }
+
+    val availableCategories = remember(expenseCategories) {
+        if (expenseCategories.isNotEmpty()) {
+            expenseCategories.map { it.name }
+        } else {
+            TransactionCategory.defaultExpenseCategories.map { it.name }
+        }
+    }
+    var selectedCategory by remember(entry, availableCategories) {
+        mutableStateOf(
+            entry?.category?.takeIf { it.isNotBlank() }
+                ?: availableCategories.firstOrNull { it.equals("Food & Dining", ignoreCase = true) }
+                ?: availableCategories.firstOrNull()
+                ?: "Food & Dining"
+        )
+    }
+    var categoryDropdownExpanded by remember { mutableStateOf(false) }
+
+    var selectedBank by remember(entry, banks) {
+        mutableStateOf(
+            banks.find { it.id == entry?.settledBankId }
+                ?: banks.find { it.name.equals(entry?.settledBankName, ignoreCase = true) }
+                ?: banks.firstOrNull()
+        )
+    }
+    var walletDropdownExpanded by remember { mutableStateOf(false) }
 
     var showContactPicker by remember { mutableStateOf(false) }
     var showCalc by remember { mutableStateOf(false) }
@@ -1606,7 +1747,7 @@ private fun AddEditMyDebtDialog(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (entry == null) "Catat Hutang Baru" else "Edit Catatan Hutang",
+                    text = if (entry == null) "Record New Debt" else "Edit Debt Entry",
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1640,13 +1781,13 @@ private fun AddEditMyDebtDialog(
                             Spacer(modifier = Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Pilih / Import Kontak",
+                                    text = "Select / Import Contact",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp,
                                     color = Blue500
                                 )
                                 Text(
-                                    text = "Gunakan kontak dari Shield Tracker",
+                                    text = "Choose from saved Shield contacts",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1658,8 +1799,8 @@ private fun AddEditMyDebtDialog(
                 OutlinedTextField(
                     value = creditorName,
                     onValueChange = { creditorName = it },
-                    label = { Text("Nama Pemberi Pinjaman") },
-                    placeholder = { Text("Contoh: Budi, Bos, Ibu") },
+                    label = { Text("Creditor Name") },
+                    placeholder = { Text("e.g., Budi, Mom, Alex") },
                     singleLine = true,
                     leadingIcon = {
                         ShieldAvatarView(
@@ -1675,13 +1816,13 @@ private fun AddEditMyDebtDialog(
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { amountText = it.filter { char -> char.isDigit() || char == '.' } },
-                    label = { Text("Nominal Hutang (Rp)") },
+                    label = { Text("Debt Amount (Rp)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     trailingIcon = {
                         IconButton(onClick = { showCalc = true }) {
                             Icon(
                                 imageVector = Icons.Default.Calculate,
-                                contentDescription = "Kalkulator",
+                                contentDescription = "Calculator",
                                 tint = Rose500
                             )
                         }
@@ -1691,11 +1832,113 @@ private fun AddEditMyDebtDialog(
                     shape = RoundedCornerShape(12.dp)
                 )
 
+                ExposedDropdownMenuBox(
+                    expanded = categoryDropdownExpanded,
+                    onExpandedChange = { categoryDropdownExpanded = !categoryDropdownExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = selectedCategory,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Expense Category") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Category,
+                                contentDescription = null,
+                                tint = Blue500
+                            )
+                        },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = categoryDropdownExpanded,
+                        onDismissRequest = { categoryDropdownExpanded = false }
+                    ) {
+                        availableCategories.forEach { catName ->
+                            DropdownMenuItem(
+                                text = { Text(catName, fontWeight = FontWeight.Medium) },
+                                onClick = {
+                                    selectedCategory = catName
+                                    categoryDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                if (banks.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        ExposedDropdownMenuBox(
+                            expanded = walletDropdownExpanded,
+                            onExpandedChange = { walletDropdownExpanded = !walletDropdownExpanded }
+                        ) {
+                            OutlinedTextField(
+                                value = selectedBank?.name ?: "Select Wallet / Account",
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Pay Using Wallet / Account") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.AccountBalanceWallet,
+                                        contentDescription = null,
+                                        tint = Amber500
+                                    )
+                                },
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = walletDropdownExpanded)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            ExposedDropdownMenu(
+                                expanded = walletDropdownExpanded,
+                                onDismissRequest = { walletDropdownExpanded = false }
+                            ) {
+                                banks.forEach { bank ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(bank.name, fontWeight = FontWeight.Bold)
+                                                Text(
+                                                    "Balance: Rp ${formatter.format(bank.balance)}",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            selectedBank = bank
+                                            walletDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        Text(
+                            text = "Wallet balance will only be deducted when you press 'Mark Settled'.",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
+                            ),
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                    }
+                }
+
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
-                    label = { Text("Catatan / Keperluan (Opsional)") },
-                    placeholder = { Text("Contoh: Pinjam bayar kos, beli makan") },
+                    label = { Text("Note / Purpose (Optional)") },
+                    placeholder = { Text("e.g., Dinner split, monthly rent") },
                     maxLines = 3,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -1707,21 +1950,216 @@ private fun AddEditMyDebtDialog(
                 onClick = {
                     val amt = amountText.toDoubleOrNull() ?: 0.0
                     if (creditorName.isNotBlank() && amt > 0) {
-                        onSave(creditorName.trim(), amt, note.trim(), timestamp, effectiveAvatarUri)
+                        onSave(
+                            creditorName.trim(),
+                            amt,
+                            note.trim(),
+                            timestamp,
+                            effectiveAvatarUri,
+                            selectedBank?.id,
+                            selectedBank?.name,
+                            selectedCategory
+                        )
                     }
                 },
                 enabled = creditorName.isNotBlank() && (amountText.toDoubleOrNull() ?: 0.0) > 0,
                 colors = ButtonDefaults.buttonColors(containerColor = Rose500)
             ) {
                 Text(
-                    text = if (entry == null) "Simpan Hutang" else "Simpan Perubahan",
+                    text = if (entry == null) "Save Debt" else "Save Changes",
                     fontWeight = FontWeight.Bold
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettleMyDebtDialog(
+    entry: MyDebtEntry,
+    banks: List<Bank>,
+    expenseCategories: List<TransactionCategory>,
+    formatRupiah: (Double) -> String,
+    onDismiss: () -> Unit,
+    onConfirm: (bankId: Long?, bankName: String?, category: String, deductWallet: Boolean) -> Unit
+) {
+    val formatter = remember { NumberFormat.getNumberInstance(Locale.US) }
+    var deductWallet by remember { mutableStateOf(true) }
+
+    val availableCategories = remember(expenseCategories) {
+        if (expenseCategories.isNotEmpty()) {
+            expenseCategories.map { it.name }
+        } else {
+            TransactionCategory.defaultExpenseCategories.map { it.name }
+        }
+    }
+    var selectedCategory by remember(entry, availableCategories) {
+        mutableStateOf(
+            entry.category.takeIf { it.isNotBlank() }
+                ?: availableCategories.firstOrNull { it.equals("Food & Dining", ignoreCase = true) }
+                ?: availableCategories.firstOrNull()
+                ?: "Food & Dining"
+        )
+    }
+    var categoryDropdownExpanded by remember { mutableStateOf(false) }
+
+    var selectedBank by remember(entry, banks) {
+        mutableStateOf(
+            banks.find { it.id == entry.settledBankId }
+                ?: banks.find { it.name.equals(entry.settledBankName, ignoreCase = true) }
+                ?: banks.firstOrNull()
+        )
+    }
+    var walletDropdownExpanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Emerald500)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Settle Debt", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Mark debt to ${entry.personName} (${formatRupiah(entry.amount)}) as settled?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Deduct Wallet & Record Expense?", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(
+                            "Automatically deduct balance and record in your selected category.",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                            )
+                        )
+                    }
+                    Switch(
+                        checked = deductWallet,
+                        onCheckedChange = { deductWallet = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Emerald500)
+                    )
+                }
+
+                if (deductWallet) {
+                    ExposedDropdownMenuBox(
+                        expanded = categoryDropdownExpanded,
+                        onExpandedChange = { categoryDropdownExpanded = !categoryDropdownExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedCategory,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Expense Category") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Category, contentDescription = null, tint = Blue500)
+                            },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryDropdownExpanded)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        ExposedDropdownMenu(
+                            expanded = categoryDropdownExpanded,
+                            onDismissRequest = { categoryDropdownExpanded = false }
+                        ) {
+                            availableCategories.forEach { catName ->
+                                DropdownMenuItem(
+                                    text = { Text(catName, fontWeight = FontWeight.Medium) },
+                                    onClick = {
+                                        selectedCategory = catName
+                                        categoryDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    if (banks.isNotEmpty()) {
+                        ExposedDropdownMenuBox(
+                            expanded = walletDropdownExpanded,
+                            onExpandedChange = { walletDropdownExpanded = !walletDropdownExpanded }
+                        ) {
+                            OutlinedTextField(
+                                value = selectedBank?.name ?: "Select Wallet / Account",
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Pay Using Wallet") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Amber500)
+                                },
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = walletDropdownExpanded)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            ExposedDropdownMenu(
+                                expanded = walletDropdownExpanded,
+                                onDismissRequest = { walletDropdownExpanded = false }
+                            ) {
+                                banks.forEach { bank ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(bank.name, fontWeight = FontWeight.Bold)
+                                                Text(
+                                                    "Balance: Rp ${formatter.format(bank.balance)}",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            selectedBank = bank
+                                            walletDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(
+                        if (deductWallet) selectedBank?.id else null,
+                        if (deductWallet) selectedBank?.name else null,
+                        selectedCategory,
+                        deductWallet
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Emerald500)
+            ) {
+                Text("Mark Settled", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
             }
         }
     )
@@ -1761,27 +2199,27 @@ private fun ShieldItemCard(
 
         when {
             rawCategory != null -> {
-                if (rawCategory.startsWith("Pembelian", ignoreCase = true) || rawCategory.startsWith("Beli", ignoreCase = true)) {
+                if (rawCategory.startsWith("Pembelian", ignoreCase = true) || rawCategory.startsWith("Beli", ignoreCase = true) || rawCategory.startsWith("Purchase", ignoreCase = true)) {
                     rawCategory
                 } else if (rawCategory.equals("Makanan", ignoreCase = true) || rawCategory.equals("Food & Dining", ignoreCase = true)) {
-                    "Pembelian Makanan"
+                    "Food & Dining"
                 } else {
-                    "Pembelian $rawCategory"
+                    rawCategory
                 }
             }
-            entry.note.isNotBlank() && !entry.note.startsWith("Kasir:", ignoreCase = true) -> {
+            entry.note.isNotBlank() && !entry.note.startsWith("Kasir:", ignoreCase = true) && !entry.note.startsWith("Cashier:", ignoreCase = true) && !entry.note.startsWith("Total:", ignoreCase = true) -> {
                 val noteLower = entry.note.lowercase(Locale.ROOT)
                 if (noteLower.contains("makan") || noteLower.contains("food")) {
-                    "Pembelian Makanan"
-                } else if (entry.note.startsWith("Pembelian", ignoreCase = true)) {
+                    "Food & Dining"
+                } else if (entry.note.startsWith("Pembelian", ignoreCase = true) || entry.note.startsWith("Purchase", ignoreCase = true)) {
                     entry.note
                 } else if (entry.note.length <= 25 && !entry.note.contains(":") && !entry.note.contains("\n")) {
-                    "Pembelian ${entry.note}"
+                    entry.note
                 } else {
-                    "Talangan Teman"
+                    "Shared Expense"
                 }
             }
-            else -> "Pembelian Makanan"
+            else -> "Food & Dining"
         }
     }
 
@@ -1790,8 +2228,12 @@ private fun ShieldItemCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        ),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
@@ -1870,7 +2312,7 @@ private fun ShieldItemCard(
                             .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = if (entry.isSettled) "Sudah Lunas" else "Belum Bayar",
+                            text = if (entry.isSettled) "Settled" else "Unpaid",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = if (entry.isSettled) Emerald500 else Amber500,
@@ -1907,7 +2349,7 @@ private fun ShieldItemCard(
                             Spacer(modifier = Modifier.width(6.dp))
                             val hasDeduction = histories.any { it.amount < 0 }
                             Text(
-                                text = if (hasDeduction) "Histori Transaksi (${histories.size})" else "Histori Penambahan (${histories.size})",
+                                text = if (hasDeduction) "Transaction History (${histories.size})" else "Activity History (${histories.size})",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
@@ -1916,7 +2358,7 @@ private fun ShieldItemCard(
                         }
                         Icon(
                             imageVector = if (isHistoryExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = if (isHistoryExpanded) "Tutup" else "Buka",
+                            contentDescription = if (isHistoryExpanded) "Collapse" else "Expand",
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                             modifier = Modifier.size(18.dp)
                         )
@@ -1949,7 +2391,7 @@ private fun ShieldItemCard(
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
                                             if (isDeduction) {
-                                                val isTransfer = hItem.note.contains("Ditransfer", ignoreCase = true)
+                                                val isTransfer = hItem.note.contains("Ditransfer", ignoreCase = true) || hItem.note.contains("Transferred", ignoreCase = true)
                                                 Box(
                                                     modifier = Modifier
                                                         .clip(RoundedCornerShape(4.dp))
@@ -1957,7 +2399,7 @@ private fun ShieldItemCard(
                                                         .padding(horizontal = 5.dp, vertical = 2.dp)
                                                 ) {
                                                     Text(
-                                                        text = if (isTransfer) "Transfer" else "Bayarin Lain",
+                                                        text = if (isTransfer) "Transfer" else "Offset",
                                                         style = MaterialTheme.typography.labelSmall.copy(
                                                             fontSize = 9.sp,
                                                             fontWeight = FontWeight.Bold,
@@ -1974,7 +2416,7 @@ private fun ShieldItemCard(
                                                             .padding(horizontal = 5.dp, vertical = 2.dp)
                                                     ) {
                                                         Text(
-                                                            text = "Kasir",
+                                                            text = "Bill Split",
                                                             style = MaterialTheme.typography.labelSmall.copy(
                                                                 fontSize = 9.sp,
                                                                 fontWeight = FontWeight.Bold,
@@ -2047,41 +2489,46 @@ private fun ShieldItemCard(
                             onClick = onSettle,
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Emerald500),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                             modifier = Modifier.height(34.dp)
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Tandai Lunas", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Mark Settled", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                         }
 
                         OutlinedButton(
                             onClick = onRemind,
                             shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                             modifier = Modifier.height(34.dp)
                         ) {
                             Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Ingatkan", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Remind", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                         }
                     } else {
 
                         OutlinedButton(
                             onClick = onUnsettle,
                             shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                             modifier = Modifier.height(34.dp)
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = null, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Batal Lunas", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Text("Undo Settled", fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
                         }
 
                         if (entry.settledBankName != null) {
                             Text(
-                                text = "Masuk ke: ${entry.settledBankName}",
+                                text = "Received in: ${entry.settledBankName}",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                     fontSize = 11.sp
-                                )
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -2091,25 +2538,25 @@ private fun ShieldItemCard(
 
                     IconButton(
                         onClick = onEdit,
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit",
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
 
                     IconButton(
                         onClick = onDelete,
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(30.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
-                            contentDescription = "Hapus",
+                            contentDescription = "Delete",
                             tint = Rose500,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -2137,13 +2584,13 @@ private fun SettleConfirmationDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Emerald500)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Konfirmasi Pelunasan", fontWeight = FontWeight.Bold)
+                Text("Confirm Settlement", fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Tandai talangan ${entry.friendName} sebesar Rp ${formatter.format(entry.amount)} telah lunas?",
+                    text = "Mark ${entry.friendName}'s receivable of Rp ${formatter.format(entry.amount)} as settled?",
                     style = MaterialTheme.typography.bodyMedium
                 )
 
@@ -2155,9 +2602,9 @@ private fun SettleConfirmationDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Tambah ke Saldo Akun?", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Add to Wallet Balance?", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         Text(
-                            "Otomatis catat pemasukan dan tambahkan ke saldo rekening.",
+                            "Automatically record as income and add to your wallet balance.",
                             style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f))
                         )
                     }
@@ -2174,10 +2621,10 @@ private fun SettleConfirmationDialog(
                         onExpandedChange = { dropdownExpanded = !dropdownExpanded }
                     ) {
                         OutlinedTextField(
-                            value = selectedBank?.name ?: "Pilih Akun / Dompet",
+                            value = selectedBank?.name ?: "Select Wallet / Account",
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Rekening Penerima") },
+                            label = { Text("Receiving Wallet") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2213,12 +2660,12 @@ private fun SettleConfirmationDialog(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Emerald500)
             ) {
-                Text("Tandai Lunas", fontWeight = FontWeight.Bold)
+                Text("Mark Settled", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text("Cancel")
             }
         }
     )
@@ -2234,7 +2681,7 @@ private fun RemindFriendDialog(
     val formatter = remember { NumberFormat.getNumberInstance(Locale.US) }
     val message = remember(entry) {
         val itemDesc = if (entry.note.isNotEmpty()) " (${entry.note})" else ""
-        "Halo ${entry.friendName}! Mau ngingetin talangan waktu itu$itemDesc sebesar Rp ${formatter.format(entry.amount)} yaa. Kalau sempat boleh ditransfer yaa, makasih banyak! 🙏"
+        "Hi ${entry.friendName}! Friendly reminder about our split bill$itemDesc of Rp ${formatter.format(entry.amount)}. Let me know whenever you get a chance to transfer, thanks!"
     }
 
     AlertDialog(
@@ -2243,13 +2690,13 @@ private fun RemindFriendDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Share, contentDescription = null, tint = Emerald500)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Ingatkan ${entry.friendName}", fontWeight = FontWeight.Bold)
+                Text("Remind ${entry.friendName}", fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Pratinjau pesan pengingat ramah:",
+                    text = "Friendly reminder message preview:",
                     style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                 )
                 Card(
@@ -2270,12 +2717,12 @@ private fun RemindFriendDialog(
                 onClick = { onShare(message) },
                 colors = ButtonDefaults.buttonColors(containerColor = Emerald500)
             ) {
-                Text("Kirim / Bagikan", fontWeight = FontWeight.Bold)
+                Text("Send / Share", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             OutlinedButton(onClick = { onCopy(message) }) {
-                Text("Salin Teks")
+                Text("Copy Text")
             }
         }
     )
@@ -2360,13 +2807,13 @@ private fun ShieldWalletAllocationSection(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            text = "Keluar dari Wallet / Rekening",
+                            text = "Deduct from Wallet / Account",
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Potong saldo dompet untuk talangan ini",
+                            text = "Deduct wallet balance for this Shield entry",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                         )
@@ -2385,7 +2832,7 @@ private fun ShieldWalletAllocationSection(
             if (isDeductEnabled) {
                 if (banks.isEmpty()) {
                     Text(
-                        text = "Belum ada wallet/rekening terdaftar.",
+                        text = "No wallets/accounts registered yet.",
                         color = Rose500,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
@@ -2395,7 +2842,7 @@ private fun ShieldWalletAllocationSection(
                     if (canShowDifference) {
                         val diffAmount = newShieldAmount - currentShieldAmount
                         Text(
-                            text = "Pilih Jumlah yang Dipotong:",
+                            text = "Select Amount to Deduct:",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
                         )
                         Row(
@@ -2419,7 +2866,7 @@ private fun ShieldWalletAllocationSection(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
-                                        text = "Hanya Selisih (+)",
+                                        text = "Difference Only (+)",
                                         fontSize = 11.sp,
                                         fontWeight = if (deductMode == ShieldDeductAmountMode.DIFFERENCE) FontWeight.Bold else FontWeight.Medium,
                                         color = if (deductMode == ShieldDeductAmountMode.DIFFERENCE) Emerald500 else MaterialTheme.colorScheme.onSurface
@@ -2449,7 +2896,7 @@ private fun ShieldWalletAllocationSection(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
-                                        text = "Total Penuh",
+                                        text = "Full Total",
                                         fontSize = 11.sp,
                                         fontWeight = if (deductMode == ShieldDeductAmountMode.FULL) FontWeight.Bold else FontWeight.Medium,
                                         color = if (deductMode == ShieldDeductAmountMode.FULL) Emerald500 else MaterialTheme.colorScheme.onSurface
@@ -2479,7 +2926,7 @@ private fun ShieldWalletAllocationSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Target Keluar dari Wallet:",
+                                text = "Target Wallet Deduction:",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
@@ -2494,7 +2941,7 @@ private fun ShieldWalletAllocationSection(
                     }
 
                     Text(
-                        text = if (allocations.size > 1) "Alokasi Per Wallet (${allocations.size} wallet terpakai):" else "Pilih Wallet:",
+                        text = if (allocations.size > 1) "Per-Wallet Allocation (${allocations.size} wallets):" else "Select Wallet:",
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                     )
 
@@ -2523,7 +2970,7 @@ private fun ShieldWalletAllocationSection(
                                             onExpandedChange = { dropdownExpanded = !dropdownExpanded }
                                         ) {
                                             OutlinedTextField(
-                                                value = alloc.bank?.let { "${it.name} (Saldo: Rp ${formatter.format(it.balance)})" } ?: "Pilih Wallet",
+                                                value = alloc.bank?.let { "${it.name} (Bal: Rp ${formatter.format(it.balance)})" } ?: "Select Wallet",
                                                 onValueChange = {},
                                                 readOnly = true,
                                                 label = { Text("Wallet #${index + 1}") },
@@ -2552,7 +2999,7 @@ private fun ShieldWalletAllocationSection(
                                                                     color = if (isAlreadyUsedInOtherRow) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface
                                                                 )
                                                                 Text(
-                                                                    text = if (isAlreadyUsedInOtherRow) "(Sudah dipilih)" else "Rp ${formatter.format(b.balance)}",
+                                                                    text = if (isAlreadyUsedInOtherRow) "(Already selected)" else "Rp ${formatter.format(b.balance)}",
                                                                     fontSize = 11.sp,
                                                                     color = if (isAlreadyUsedInOtherRow) Rose500.copy(alpha = 0.7f) else Emerald500
                                                                 )
@@ -2581,7 +3028,7 @@ private fun ShieldWalletAllocationSection(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Close,
-                                                contentDescription = "Hapus Wallet",
+                                                contentDescription = "Remove Wallet",
                                                 tint = Rose500,
                                                 modifier = Modifier.size(18.dp)
                                             )
@@ -2598,7 +3045,7 @@ private fun ShieldWalletAllocationSection(
                                             onAllocationsChange(updated)
                                         }
                                     },
-                                    label = { Text("Nominal dari ${alloc.bank?.name ?: "Wallet"} (Rp)") },
+                                    label = { Text("Amount from ${alloc.bank?.name ?: "Wallet"} (Rp)") },
                                     singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     modifier = Modifier.fillMaxWidth(),
@@ -2623,7 +3070,7 @@ private fun ShieldWalletAllocationSection(
                                                     color = Blue500.copy(alpha = 0.12f)
                                                 ) {
                                                     Text(
-                                                        text = "Sisa",
+                                                        text = "Rest",
                                                         fontSize = 11.sp,
                                                         fontWeight = FontWeight.Bold,
                                                         color = Blue500,
@@ -2647,7 +3094,7 @@ private fun ShieldWalletAllocationSection(
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.Calculate,
-                                                    contentDescription = "Kalkulator",
+                                                    contentDescription = "Calculator",
                                                     tint = Emerald500,
                                                     modifier = Modifier.size(18.dp)
                                                 )
@@ -2683,7 +3130,7 @@ private fun ShieldWalletAllocationSection(
                             ) {
                                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Gunakan > 1 Wallet", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Use > 1 Wallet", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
 
@@ -2707,7 +3154,7 @@ private fun ShieldWalletAllocationSection(
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.CallSplit, contentDescription = null, modifier = Modifier.size(14.dp), tint = Blue500)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Bagi Rata", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Blue500)
+                                Text("Split Evenly", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Blue500)
                             }
                         }
                     }
@@ -2738,9 +3185,9 @@ private fun ShieldWalletAllocationSection(
                         ) {
                             Text(
                                 text = when {
-                                    isExactMatch -> "✓ Alokasi Pas (${allocations.size} wallet)"
-                                    diff > 0 -> "⚠️ Kurang Rp ${formatter.format(diff)}"
-                                    else -> "⚠️ Kelebihan Rp ${formatter.format(-diff)}"
+                                    isExactMatch -> "✓ Exact Allocation (${allocations.size} wallet)"
+                                    diff > 0 -> "⚠️ Short by Rp ${formatter.format(diff)}"
+                                    else -> "⚠️ Exceeds by Rp ${formatter.format(-diff)}"
                                 },
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
@@ -2885,7 +3332,7 @@ private fun ManualAddShieldDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Shield, contentDescription = null, tint = Emerald500)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Catat Shield Baru", fontWeight = FontWeight.Bold)
+                Text("Record New Shield", fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -2919,14 +3366,14 @@ private fun ManualAddShieldDialog(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Pilih dari Kontak Shield (${contacts.size} kontak)",
+                                    text = "Select from Shield Contacts (${contacts.size} saved)",
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = Emerald500
                                     )
                                 )
                             }
-                            Text("Cari ➔", style = MaterialTheme.typography.labelSmall.copy(color = Emerald500, fontWeight = FontWeight.Bold))
+                            Text("Search ➔", style = MaterialTheme.typography.labelSmall.copy(color = Emerald500, fontWeight = FontWeight.Bold))
                         }
                     }
                 }
@@ -2937,7 +3384,7 @@ private fun ManualAddShieldDialog(
                         friendName = it
                         customAvatarUri = null
                     },
-                    label = { Text("Nama Teman") },
+                    label = { Text("Friend Name") },
                     placeholder = { Text("e.g. Budi, Sarah") },
                     singleLine = true,
                     trailingIcon = {
@@ -2947,14 +3394,14 @@ private fun ManualAddShieldDialog(
                                     friendName = ""
                                     customAvatarUri = null
                                 }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Hapus", modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
                                 }
                             }
                             if (contacts.isNotEmpty()) {
                                 IconButton(onClick = { showContactPicker = true }) {
                                     Icon(
                                         imageVector = Icons.Default.PersonSearch,
-                                        contentDescription = "Cari Kontak",
+                                        contentDescription = "Search Contact",
                                         tint = Emerald500
                                     )
                                 }
@@ -3004,7 +3451,7 @@ private fun ManualAddShieldDialog(
                                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
                                             Text(
-                                                "Pernah Shield",
+                                                "Saved Contact",
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Emerald500
@@ -3016,18 +3463,18 @@ private fun ManualAddShieldDialog(
                                 if (matchedContact != null) {
                                     if (effectiveAvatarUri != null) {
                                         Text(
-                                            text = "✓ Foto profil otomatis terhubung dari data sebelumnya",
+                                            text = "✓ Profile photo linked automatically from previous records",
                                             style = MaterialTheme.typography.labelSmall.copy(color = Emerald500, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
                                         )
                                     } else {
                                         Text(
-                                            text = "Ketuk foto profil untuk menambahkan foto",
+                                            text = "Tap avatar to add a profile photo",
                                             style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
                                         )
                                     }
                                 } else {
                                     Text(
-                                        text = "✨ Teman baru • Nama & foto otomatis disimpan untuk dipilih nanti",
+                                        text = "New contact • Name and photo will be saved for future use",
                                         style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp)
                                     )
                                 }
@@ -3049,13 +3496,13 @@ private fun ManualAddShieldDialog(
                         ) {
                             Icon(Icons.Default.Shield, contentDescription = null, tint = Amber500, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "${matchingExisting.friendName} sudah ada (hutang aktif: Rp ${formatter.format(matchingExisting.amount)})",
+                                    text = "${matchingExisting.friendName} already has an active balance (Rp ${formatter.format(matchingExisting.amount)})",
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Amber500)
                                 )
                                 Text(
-                                    text = "Nominal langsung diakumulasikan ke hutang & riwayat orang ini tanpa membuat kartu baru.",
+                                    text = "Amount will be added to this friend's existing card & history.",
                                     style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 11.sp)
                                 )
                             }
@@ -3066,11 +3513,11 @@ private fun ManualAddShieldDialog(
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { if (it.all { ch -> ch.isDigit() }) amountText = it },
-                    label = { Text("Jumlah Hutang (Rp)") },
+                    label = { Text("Amount Owed (Rp)") },
                     placeholder = { Text("0") },
                     trailingIcon = {
                         IconButton(onClick = { showCalc = true }) {
-                            Icon(Icons.Default.Calculate, contentDescription = "Kalkulator", tint = Emerald500)
+                            Icon(Icons.Default.Calculate, contentDescription = "Calculator", tint = Emerald500)
                         }
                     },
                     singleLine = true,
@@ -3082,8 +3529,8 @@ private fun ManualAddShieldDialog(
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
-                    label = { Text("Pesanan / Menu / Restoran (Opsional)") },
-                    placeholder = { Text("e.g. Nasi Padang + Es Teh di Pagi Sore") },
+                    label = { Text("Items / Order / Merchant (Optional)") },
+                    placeholder = { Text("e.g. Padang Rice + Iced Tea") },
                     singleLine = false,
                     minLines = 2,
                     maxLines = 4,
@@ -3150,14 +3597,14 @@ private fun ManualAddShieldDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = Emerald500)
             ) {
                 Text(
-                    text = if (matchingExisting != null) "Tambahkan ke Hutang" else "Simpan",
+                    text = if (matchingExisting != null) "Add to Balance" else "Save",
                     fontWeight = FontWeight.Bold
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text("Cancel")
             }
         }
     )
@@ -3299,7 +3746,7 @@ private fun EditShieldDialog(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (selectedTab == 0) "Edit Catatan Shield" else "Bayar Sebagian Hutang",
+                    text = if (selectedTab == 0) "Edit Shield Record" else "Partial Payment",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
@@ -3341,7 +3788,7 @@ private fun EditShieldDialog(
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = "Ubah Data",
+                                    text = "Edit Details",
                                     fontSize = 12.sp,
                                     fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
                                     color = if (selectedTab == 0) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -3367,7 +3814,7 @@ private fun EditShieldDialog(
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = "Bayar Sebagian",
+                                    text = "Partial Payment",
                                     fontSize = 12.sp,
                                     fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium,
                                     color = if (selectedTab == 1) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -3400,7 +3847,7 @@ private fun EditShieldDialog(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "Foto Profil (Ketuk foto untuk melihat)",
+                                text = "Profile Photo (Tap photo to preview)",
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Row(
@@ -3414,7 +3861,7 @@ private fun EditShieldDialog(
                                 ) {
                                     Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(if (currentAvatarUri != null) "Ganti Foto" else "Pilih Foto", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(if (currentAvatarUri != null) "Change Photo" else "Choose Photo", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 }
                                 if (currentAvatarUri != null) {
                                     IconButton(
@@ -3423,7 +3870,7 @@ private fun EditShieldDialog(
                                     ) {
                                         Icon(
                                             Icons.Default.Delete,
-                                            contentDescription = "Hapus Foto",
+                                            contentDescription = "Remove Photo",
                                             tint = Rose500,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -3436,7 +3883,7 @@ private fun EditShieldDialog(
                     OutlinedTextField(
                         value = friendName,
                         onValueChange = { friendName = it },
-                        label = { Text("Nama Teman") },
+                        label = { Text("Friend Name") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -3445,10 +3892,10 @@ private fun EditShieldDialog(
                     OutlinedTextField(
                         value = amountText,
                         onValueChange = { if (it.all { ch -> ch.isDigit() }) amountText = it },
-                        label = { Text("Jumlah Hutang (Rp)") },
+                        label = { Text("Amount Owed (Rp)") },
                         trailingIcon = {
                             IconButton(onClick = { showEditCalc = true }) {
-                                Icon(Icons.Default.Calculate, contentDescription = "Kalkulator", tint = Emerald500)
+                                Icon(Icons.Default.Calculate, contentDescription = "Calculator", tint = Emerald500)
                             }
                         },
                         singleLine = true,
@@ -3460,7 +3907,7 @@ private fun EditShieldDialog(
                     OutlinedTextField(
                         value = note,
                         onValueChange = { note = it },
-                        label = { Text("Pesanan / Menu / Catatan") },
+                        label = { Text("Items / Order / Note") },
                         singleLine = false,
                         minLines = 2,
                         maxLines = 4,
@@ -3517,11 +3964,11 @@ private fun EditShieldDialog(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "Teman cicil / bayar sebagian?",
+                                        text = "Friend paying in installments?",
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Emerald500)
                                     )
                                     Text(
-                                        text = "Buka tab Bayar Sebagian untuk potong hutang & catat transfer/barter.",
+                                        text = "Switch to Partial Payment tab to reduce balance & record transfer or offset.",
                                         style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 11.sp)
                                     )
                                 }
@@ -3544,7 +3991,7 @@ private fun EditShieldDialog(
                         ) {
                             Column {
                                 Text(
-                                    text = "Total Hutang Saat Ini",
+                                    text = "Current Active Balance",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
@@ -3559,7 +4006,7 @@ private fun EditShieldDialog(
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
-                                    text = "Teman",
+                                    text = "Friend",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
@@ -3577,10 +4024,10 @@ private fun EditShieldDialog(
                     OutlinedTextField(
                         value = deductionText,
                         onValueChange = { if (it.all { ch -> ch.isDigit() }) deductionText = it },
-                        label = { Text("Nominal yang Dibayar (Rp)") },
+                        label = { Text("Payment Amount (Rp)") },
                         trailingIcon = {
                             IconButton(onClick = { showDeductionCalc = true }) {
-                                Icon(Icons.Default.Calculate, contentDescription = "Kalkulator", tint = Emerald500)
+                                Icon(Icons.Default.Calculate, contentDescription = "Calculator", tint = Emerald500)
                             }
                         },
                         singleLine = true,
@@ -3593,7 +4040,7 @@ private fun EditShieldDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        val percentages = listOf(0.25 to "25%", 0.50 to "50%", 0.75 to "75%", 1.0 to "Lunas")
+                        val percentages = listOf(0.25 to "25%", 0.50 to "50%", 0.75 to "75%", 1.0 to "Full")
                         percentages.forEach { (pct, label) ->
                             val calcAmt = (entry.amount * pct).toLong()
                             val isSelected = deductionText == calcAmt.toString()
@@ -3625,7 +4072,7 @@ private fun EditShieldDialog(
                     }
 
                     Text(
-                        text = "Metode Pengurangan Hutang:",
+                        text = "Repayment Method:",
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                     )
 
@@ -3657,12 +4104,12 @@ private fun EditShieldDialog(
                             Spacer(modifier = Modifier.width(6.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Ditransfer (Catat Pemasukan)",
+                                    text = "Transferred (Record as Income)",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp
                                 )
                                 Text(
-                                    text = "Uang masuk ke rekening & otomatis menambah saldo.",
+                                    text = "Funds deposited into your wallet & added to balance automatically.",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                                 )
@@ -3676,10 +4123,10 @@ private fun EditShieldDialog(
                             onExpandedChange = { bankDropdownExpanded = !bankDropdownExpanded }
                         ) {
                             OutlinedTextField(
-                                value = selectedBank?.name ?: "Pilih Rekening Penerima",
+                                value = selectedBank?.name ?: "Select Receiving Wallet",
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Rekening Penerima *") },
+                                label = { Text("Receiving Wallet *") },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bankDropdownExpanded) },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -3744,12 +4191,12 @@ private fun EditShieldDialog(
                             Spacer(modifier = Modifier.width(6.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Dia Bayarin Hal Lain",
+                                    text = "They Paid for Something Else (Offset)",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp
                                 )
                                 Text(
-                                    text = "Potong hutang langsung (tanpa menambah saldo rekening).",
+                                    text = "Reduce receivable balance directly without changing wallet balance.",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                                 )
@@ -3762,8 +4209,8 @@ private fun EditShieldDialog(
                         onValueChange = { deductionNote = it },
                         label = {
                             Text(
-                                if (!isTransferMethod) "Keterangan (misal: Bayarin kopi, parkir, dll)"
-                                else "Catatan Tambahan (Opsional)"
+                                if (!isTransferMethod) "Note (e.g., Covered coffee, parking, etc.)"
+                                else "Additional Note (Optional)"
                             )
                         },
                         singleLine = true,
@@ -3792,9 +4239,9 @@ private fun EditShieldDialog(
                             ) {
                                 Text(
                                     text = when {
-                                        deductionAmount > entry.amount -> "⚠️ Melebihi total hutang!"
-                                        isFullyPaidAfterDeduction -> "Status: Otomatis Lunas! ✓"
-                                        else -> "Sisa Hutang Baru:"
+                                        deductionAmount > entry.amount -> "⚠️ Exceeds total balance!"
+                                        isFullyPaidAfterDeduction -> "Status: Settled in Full! ✓"
+                                        else -> "New Remaining Balance:"
                                     },
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
@@ -3807,7 +4254,7 @@ private fun EditShieldDialog(
                                 )
                                 Text(
                                     text = when {
-                                        deductionAmount > entry.amount -> "Maks Rp ${formatter.format(entry.amount)}"
+                                        deductionAmount > entry.amount -> "Max Rp ${formatter.format(entry.amount)}"
                                         isFullyPaidAfterDeduction -> "Rp 0"
                                         else -> "Rp ${formatter.format(remainingAfterDeduction)}"
                                     },
@@ -3864,7 +4311,7 @@ private fun EditShieldDialog(
                     enabled = friendName.isNotBlank() && (amountText.toDoubleOrNull() ?: 0.0) > 0 && isDeductValid,
                     colors = ButtonDefaults.buttonColors(containerColor = Emerald500)
                 ) {
-                    Text("Simpan Perubahan", fontWeight = FontWeight.Bold)
+                    Text("Save Changes", fontWeight = FontWeight.Bold)
                 }
             } else {
                 Button(
@@ -3885,7 +4332,7 @@ private fun EditShieldDialog(
                     colors = ButtonDefaults.buttonColors(containerColor = Emerald500)
                 ) {
                     Text(
-                        text = if (isFullyPaidAfterDeduction) "Lunaskan Hutang" else "Potong Hutang",
+                        text = if (isFullyPaidAfterDeduction) "Settle Balance" else "Deduct Balance",
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -3893,7 +4340,7 @@ private fun EditShieldDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text("Cancel")
             }
         }
     )

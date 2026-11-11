@@ -2,6 +2,7 @@ package com.dave.moneymanager.ui.screens
 
 import android.app.DatePickerDialog
 import android.content.Context
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,13 +26,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material3.AlertDialog
@@ -44,6 +48,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -111,23 +117,34 @@ fun DashboardScreen(
     var initialTxType by remember { mutableStateOf(Transaction.TYPE_EXPENSE) }
     var showTransferDialog by remember { mutableStateOf(false) }
     var showAddBankDialog by remember { mutableStateOf(false) }
+    var showSearchBar by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
     val calendar = remember { Calendar.getInstance() }
     val dayFormat = remember { SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.US) }
 
     val activePeriodLabel = remember(filterOptions) {
         when (filterOptions.timeFilterMode) {
-            TimeFilterMode.SPECIFIC_DATE -> dayFormat.format(Date(filterOptions.selectedDateMillis))
+            TimeFilterMode.SPECIFIC_DATE -> SimpleDateFormat("dd MMM yyyy", Locale.US).format(Date(filterOptions.selectedDateMillis))
             TimeFilterMode.TODAY -> "Today"
             TimeFilterMode.THIS_WEEK -> "This Week"
             TimeFilterMode.ALL -> "All Time"
             TimeFilterMode.CUSTOM_RANGE -> "Custom Range"
-            TimeFilterMode.THIS_MONTH -> {
-                if (filterOptions.isViewingCurrentMonth()) {
-                    "This Month (${viewModel.getMonthYearTitle()})"
-                } else {
-                    viewModel.getMonthYearTitle()
-                }
+            TimeFilterMode.THIS_MONTH -> viewModel.getMonthYearTitle()
+        }
+    }
+
+    val displayedTransactions = remember(filteredTransactions, searchQuery) {
+        if (searchQuery.isBlank()) {
+            filteredTransactions
+        } else {
+            val q = searchQuery.trim()
+            filteredTransactions.filter { tx ->
+                tx.category.contains(q, ignoreCase = true) ||
+                    tx.note.contains(q, ignoreCase = true) ||
+                    tx.bankName.contains(q, ignoreCase = true) ||
+                    (tx.destination?.contains(q, ignoreCase = true) == true) ||
+                    (tx.targetBankName?.contains(q, ignoreCase = true) == true)
             }
         }
     }
@@ -141,8 +158,7 @@ fun DashboardScreen(
                 },
                 containerColor = Emerald500,
                 contentColor = Color.White,
-                shape = CircleShape,
-                modifier = Modifier.padding(bottom = 68.dp)
+                shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Transaction")
             }
@@ -153,10 +169,9 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 90.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(top = 14.dp, bottom = 88.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-
             item {
                 StatSummaryCard(
                     totalBalance = totalBalance,
@@ -172,128 +187,12 @@ fun DashboardScreen(
             }
 
             item {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Accounts & Wallets",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                            )
-                            if (filterOptions.selectedBankId != null) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(Emerald500.copy(alpha = 0.15f))
-                                        .clickable { viewModel.setBankFilter(null) }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = "Filtered",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                color = Emerald500,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 10.sp
-                                            )
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Clear",
-                                            tint = Emerald500,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        TextButton(onClick = { onNavigateToScreen(NavigationScreen.BANKS) }) {
-                            Text("Manage", color = Emerald500, fontWeight = FontWeight.SemiBold)
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                tint = Emerald500,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(horizontal = 2.dp)
-                    ) {
-                        items(banks) { bank ->
-                            val isSelected = filterOptions.selectedBankId == bank.id
-                            BankCard(
-                                bank = bank,
-                                isSelected = isSelected,
-                                isBalanceHidden = isBalanceHidden,
-                                onClick = {
-
-                                    if (isSelected) {
-                                        viewModel.setBankFilter(null)
-                                    } else {
-                                        viewModel.setBankFilter(bank.id)
-                                    }
-                                }
-                            )
-                        }
-
-                        item {
-                            Card(
-                                modifier = Modifier
-                                    .width(130.dp)
-                                    .height(150.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .clickable { showAddBankDialog = true },
-                                shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(CircleShape)
-                                            .background(Emerald500.copy(alpha = 0.2f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(Icons.Default.Add, contentDescription = null, tint = Emerald500)
-                                    }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "+ Add Account",
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = Emerald500
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-
                     QuickActionButton(
-                        icon = Icons.Default.Add,
+                        icon = Icons.Default.ArrowUpward,
                         label = "Expense",
                         color = Rose500,
                         modifier = Modifier.weight(1f),
@@ -304,7 +203,7 @@ fun DashboardScreen(
                     )
 
                     QuickActionButton(
-                        icon = Icons.Default.Add,
+                        icon = Icons.Default.ArrowDownward,
                         label = "Income",
                         color = Emerald500,
                         modifier = Modifier.weight(1f),
@@ -323,12 +222,129 @@ fun DashboardScreen(
                     )
 
                     QuickActionButton(
-                        icon = Icons.Default.AutoAwesome,
+                        icon = Icons.Default.NotificationsActive,
                         label = "Auto-Write",
-                        color = Amber500,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                         onClick = { onNavigateToScreen(NavigationScreen.AUTO_WRITE) }
                     )
+                }
+            }
+
+            item {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Accounts & Wallets",
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                            )
+                            if (filterOptions.selectedBankId != null) {
+                                val selectedBankName = banks.find { it.id == filterOptions.selectedBankId }?.name ?: "Filtered"
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Emerald500.copy(alpha = 0.15f))
+                                        .clickable { viewModel.setBankFilter(null) }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = selectedBankName,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                color = Emerald500,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 10.sp
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Clear Filter",
+                                            tint = Emerald500,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        TextButton(onClick = { onNavigateToScreen(NavigationScreen.BANKS) }) {
+                            Text("Manage", color = Emerald500, fontWeight = FontWeight.SemiBold)
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = Emerald500,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) {
+                        items(banks) { bank ->
+                            val isSelected = filterOptions.selectedBankId == bank.id
+                            BankCard(
+                                bank = bank,
+                                isSelected = isSelected,
+                                isBalanceHidden = isBalanceHidden,
+                                onClick = {
+                                    if (isSelected) {
+                                        viewModel.setBankFilter(null)
+                                    } else {
+                                        viewModel.setBankFilter(bank.id)
+                                    }
+                                }
+                            )
+                        }
+
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .width(120.dp)
+                                    .height(138.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .clickable { showAddBankDialog = true },
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(CircleShape)
+                                            .background(Emerald500.copy(alpha = 0.18f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, tint = Emerald500)
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Add Account",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = Emerald500
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -345,7 +361,8 @@ fun DashboardScreen(
                         .clickable { onNavigateToScreen(NavigationScreen.CATEGORIES) },
                     shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -357,21 +374,21 @@ fun DashboardScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Emerald500.copy(alpha = 0.15f)),
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         Icons.Default.PieChart,
                                         contentDescription = null,
-                                        tint = Emerald500,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text(
-                                        text = "Monthly Budgeting",
+                                        text = "Monthly Budget",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                     )
                                     Text(
@@ -384,12 +401,13 @@ fun DashboardScreen(
                             }
 
                             TextButton(onClick = { onNavigateToScreen(NavigationScreen.CATEGORIES) }) {
-                                Text("Manage", color = Emerald500, fontWeight = FontWeight.Bold)
+                                Text("Details", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.width(2.dp))
                                 Icon(
                                     Icons.AutoMirrored.Filled.ArrowForward,
                                     contentDescription = null,
-                                    tint = Emerald500,
-                                    modifier = Modifier.size(16.dp)
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(15.dp)
                                 )
                             }
                         }
@@ -400,8 +418,8 @@ fun DashboardScreen(
                             progress = { pct },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(7.dp)
-                                .clip(RoundedCornerShape(4.dp)),
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
                             color = when {
                                 isExceeded -> Rose500
                                 pct >= 0.8f -> Amber500
@@ -424,7 +442,7 @@ fun DashboardScreen(
                                 )
                             )
                             Text(
-                                text = if (totalLimit > 0) "Limit: ${viewModel.formatRupiah(totalLimit)}" else "No budgets set",
+                                text = if (totalLimit > 0) "Limit: ${viewModel.formatRupiah(totalLimit)}" else "Tap to set budget",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -439,16 +457,17 @@ fun DashboardScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(18.dp))
                         .clickable { onNavigateToScreen(NavigationScreen.SHIELD) },
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (unsettledShieldCount > 0) Rose500.copy(alpha = 0.08f) else Emerald500.copy(alpha = 0.08f)
+                        containerColor = MaterialTheme.colorScheme.surface
                     ),
-                    border = androidx.compose.foundation.BorderStroke(
+                    border = BorderStroke(
                         1.dp,
-                        if (unsettledShieldCount > 0) Rose500.copy(alpha = 0.3f) else Emerald500.copy(alpha = 0.3f)
-                    )
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -460,29 +479,29 @@ fun DashboardScreen(
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                             Box(
                                 modifier = Modifier
-                                    .size(42.dp)
-                                    .clip(CircleShape)
-                                    .background(if (unsettledShieldCount > 0) Rose500 else Emerald500),
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Shield,
                                     contentDescription = "Shield",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
+                                    tint = if (unsettledShieldCount > 0) Rose500 else Emerald500,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "Shield Tracker",
+                                    text = "Shield & Debt Tracker",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                 )
                                 Text(
                                     text = if (unsettledShieldCount > 0) {
-                                        "$unsettledShieldCount teman belum bayar (${viewModel.formatRupiah(totalUnsettledShield)})"
+                                        "$unsettledShieldCount pending receivables (${viewModel.formatRupiah(totalUnsettledShield)})"
                                     } else {
-                                        "Semua talangan sudah lunas!"
+                                        "All receivables settled"
                                     },
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = if (unsettledShieldCount > 0) Rose500 else Emerald500,
@@ -495,145 +514,125 @@ fun DashboardScreen(
 
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                            contentDescription = "Buka Shield",
-                            tint = if (unsettledShieldCount > 0) Rose500 else Emerald500,
-                            modifier = Modifier.size(18.dp)
+                            contentDescription = "Open Shield",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
             }
 
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Transactions",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "${filteredTransactions.size}",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
-                        }
-                    }
-
-                    val isFilterActive = filterOptions.selectedBankId != null ||
-                        filterOptions.timeFilterMode != TimeFilterMode.THIS_MONTH ||
-                        !filterOptions.isViewingCurrentMonth() ||
-                        filterOptions.typeFilter != "ALL"
-
-                    if (isFilterActive) {
-                        TextButton(onClick = {
-                            viewModel.resetFilters()
-                        }) {
-                            Text("Reset Filters", color = Rose500, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(
-                            onClick = { viewModel.prevMonth() },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Month")
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable {
-                                    calendar.timeInMillis = filterOptions.selectedDateMillis
-                                    DatePickerDialog(
-                                        context,
-                                        { _, y, m, d ->
-                                            calendar.set(Calendar.YEAR, y)
-                                            calendar.set(Calendar.MONTH, m)
-                                            calendar.set(Calendar.DAY_OF_MONTH, d)
-                                            viewModel.setSpecificDate(calendar.timeInMillis)
-                                        },
-                                        calendar.get(Calendar.YEAR),
-                                        calendar.get(Calendar.MONTH),
-                                        calendar.get(Calendar.DAY_OF_MONTH)
-                                    ).show()
-                                }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.CalendarMonth,
-                                contentDescription = "Select Date",
-                                tint = Emerald500,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = when (filterOptions.timeFilterMode) {
-                                    TimeFilterMode.SPECIFIC_DATE -> dayFormat.format(Date(filterOptions.selectedDateMillis))
-                                    TimeFilterMode.TODAY -> "Today (${SimpleDateFormat("dd MMM yyyy", Locale.US).format(Date())})"
-                                    else -> viewModel.getMonthYearTitle()
-                                },
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
+                                text = "Transactions",
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                             )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "${displayedTransactions.size}",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            }
                         }
 
-                        IconButton(
-                            onClick = { viewModel.nextMonth() },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Default.ChevronRight, contentDescription = "Next Month")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val isFilterActive = filterOptions.selectedBankId != null ||
+                                filterOptions.timeFilterMode != TimeFilterMode.THIS_MONTH ||
+                                !filterOptions.isViewingCurrentMonth() ||
+                                filterOptions.typeFilter != "ALL" ||
+                                searchQuery.isNotBlank()
+
+                            if (isFilterActive) {
+                                TextButton(onClick = {
+                                    searchQuery = ""
+                                    viewModel.resetFilters()
+                                }) {
+                                    Text("Reset", color = Rose500, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    showSearchBar = !showSearchBar
+                                    if (!showSearchBar) searchQuery = ""
+                                },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (showSearchBar) Icons.Default.Close else Icons.Default.Search,
+                                    contentDescription = "Search Transactions",
+                                    tint = if (showSearchBar || searchQuery.isNotBlank()) Emerald500 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
-                }
-            }
 
-            item {
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp)
-                ) {
-                    TimeFilterMode.values().forEach { mode ->
-                        val isSelected = when (mode) {
-                            TimeFilterMode.THIS_MONTH -> filterOptions.timeFilterMode == mode && filterOptions.isViewingCurrentMonth()
-                            else -> filterOptions.timeFilterMode == mode
-                        }
-                        item {
-                            DashboardFilterChip(
-                                label = mode.label,
-                                isSelected = isSelected,
-                                onClick = {
-                                    if (mode == TimeFilterMode.SPECIFIC_DATE) {
+                    if (showSearchBar) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Search category, note, merchant, or wallet...", fontSize = 13.sp) },
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                            },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Emerald500,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = { viewModel.prevMonth() },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Month")
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
                                         calendar.timeInMillis = filterOptions.selectedDateMillis
                                         DatePickerDialog(
                                             context,
@@ -647,22 +646,125 @@ fun DashboardScreen(
                                             calendar.get(Calendar.MONTH),
                                             calendar.get(Calendar.DAY_OF_MONTH)
                                         ).show()
-                                    } else {
-                                        viewModel.setTimeFilterMode(mode)
                                     }
-                                }
-                            )
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.CalendarMonth,
+                                    contentDescription = "Select Date",
+                                    tint = Emerald500,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = when (filterOptions.timeFilterMode) {
+                                        TimeFilterMode.SPECIFIC_DATE -> dayFormat.format(Date(filterOptions.selectedDateMillis))
+                                        TimeFilterMode.TODAY -> "Today (${SimpleDateFormat("dd MMM yyyy", Locale.US).format(Date())})"
+                                        else -> viewModel.getMonthYearTitle()
+                                    },
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                )
+                            }
+
+                            IconButton(
+                                onClick = { viewModel.nextMonth() },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(Icons.Default.ChevronRight, contentDescription = "Next Month")
+                            }
+                        }
+                    }
+
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) {
+                        TimeFilterMode.values().forEach { mode ->
+                            val isSelected = when (mode) {
+                                TimeFilterMode.THIS_MONTH -> filterOptions.timeFilterMode == mode && filterOptions.isViewingCurrentMonth()
+                                else -> filterOptions.timeFilterMode == mode
+                            }
+                            item {
+                                DashboardFilterChip(
+                                    label = mode.label,
+                                    isSelected = isSelected,
+                                    onClick = {
+                                        if (mode == TimeFilterMode.SPECIFIC_DATE) {
+                                            calendar.timeInMillis = filterOptions.selectedDateMillis
+                                            DatePickerDialog(
+                                                context,
+                                                { _, y, m, d ->
+                                                    calendar.set(Calendar.YEAR, y)
+                                                    calendar.set(Calendar.MONTH, m)
+                                                    calendar.set(Calendar.DAY_OF_MONTH, d)
+                                                    viewModel.setSpecificDate(calendar.timeInMillis)
+                                                },
+                                                calendar.get(Calendar.YEAR),
+                                                calendar.get(Calendar.MONTH),
+                                                calendar.get(Calendar.DAY_OF_MONTH)
+                                            ).show()
+                                        } else {
+                                            viewModel.setTimeFilterMode(mode)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val typeFilters = listOf(
+                            "ALL" to "All Types",
+                            Transaction.TYPE_EXPENSE to "Expenses",
+                            Transaction.TYPE_INCOME to "Income",
+                            Transaction.TYPE_TRANSFER to "Transfers"
+                        )
+                        typeFilters.forEach { (typeKey, label) ->
+                            val isSelected = filterOptions.typeFilter == typeKey
+                            val activeColor = when (typeKey) {
+                                Transaction.TYPE_EXPENSE -> Rose500
+                                Transaction.TYPE_INCOME -> Emerald500
+                                Transaction.TYPE_TRANSFER -> Blue500
+                                else -> Emerald500
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSelected) activeColor.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface)
+                                    .clickable { viewModel.setTypeFilter(typeKey) }
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (isSelected) activeColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 11.sp
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            if (filteredTransactions.isEmpty()) {
+            if (displayedTransactions.isEmpty()) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
                     ) {
                         Column(
                             modifier = Modifier
@@ -674,7 +776,7 @@ fun DashboardScreen(
                                 imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                                modifier = Modifier.size(48.dp)
+                                modifier = Modifier.size(44.dp)
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
@@ -692,7 +794,7 @@ fun DashboardScreen(
                     }
                 }
             } else {
-                val grouped = filteredTransactions.groupBy { tx ->
+                val grouped = displayedTransactions.groupBy { tx ->
                     val todayFormat = SimpleDateFormat("yyyyMMdd", Locale.US)
                     val dateHeaderFormat = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.US)
                     val todayStr = todayFormat.format(Date())
@@ -714,7 +816,7 @@ fun DashboardScreen(
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             ),
-                            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                            modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
                         )
                     }
 
@@ -848,8 +950,8 @@ fun DashboardScreen(
         val isTransfer = tx.type == Transaction.TYPE_TRANSFER
         val typeLabel = when {
             isTransfer -> "Transfer"
-            isIncome -> "Pemasukan"
-            else -> "Pengeluaran"
+            isIncome -> "Income"
+            else -> "Expense"
         }
 
         AlertDialog(
@@ -864,7 +966,7 @@ fun DashboardScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Hapus Riwayat Transaksi",
+                        text = "Delete Transaction",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -872,7 +974,7 @@ fun DashboardScreen(
             text = {
                 Column {
                     Text(
-                        text = "Apakah Anda yakin ingin menghapus transaksi ini?",
+                        text = "Are you sure you want to delete this transaction?",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -909,7 +1011,7 @@ fun DashboardScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Saldo akun serta total pemasukan & pengeluaran di dashboard akan diperbarui otomatis.",
+                        text = "Account balances and period totals on the dashboard will be updated automatically.",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -925,12 +1027,12 @@ fun DashboardScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Rose500),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Hapus", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Delete", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { transactionToDelete = null }) {
-                    Text("Batal")
+                    Text("Cancel")
                 }
             }
         )
@@ -946,7 +1048,7 @@ private fun DashboardFilterChip(
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) Emerald500 else MaterialTheme.colorScheme.surfaceVariant)
+            .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
             .clickable { onClick() }
             .padding(horizontal = 14.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
@@ -972,11 +1074,12 @@ private fun QuickActionButton(
 ) {
     Card(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(14.dp))
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
@@ -986,24 +1089,25 @@ private fun QuickActionButton(
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.15f)),
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(color.copy(alpha = 0.09f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = label,
                     tint = color,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurface
                 ),
                 maxLines = 1
             )

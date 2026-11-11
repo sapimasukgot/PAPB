@@ -10,6 +10,7 @@ data class MyDebtEntry(
     val settledAt: Long? = null,
     val settledBankId: Long? = null,
     val settledBankName: String? = null,
+    val category: String = "Food & Dining",
+    val settledTransactionId: Long? = null,
     val avatarUri: String? = null
 )
-

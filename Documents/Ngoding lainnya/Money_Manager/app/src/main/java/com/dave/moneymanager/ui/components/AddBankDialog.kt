@@ -65,9 +65,9 @@ fun AddBankDialog(
         0xFFEE4D2DL,
         0xFF4C3494L,
         0xFF003D79L,
-        0xFF10B981L,
-        0xFFF59E0BL,
-        0xFF8B5CF6L
+        0xFF059669L,
+        0xFFD97706L,
+        0xFF6D28D9L
     )
     var selectedColor by remember { mutableLongStateOf(colorPresets.first()) }
 

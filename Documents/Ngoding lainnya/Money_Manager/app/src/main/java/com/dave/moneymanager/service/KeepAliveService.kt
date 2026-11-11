@@ -37,7 +37,7 @@ class KeepAliveService : Service() {
                 "Transaction Monitor",
                 NotificationManager.IMPORTANCE_MIN
             ).apply {
-                description = "Menjaga deteksi transaksi otomatis tetap aktif di background"
+                description = "Keeps automatic transaction detection active in the background"
                 setShowBadge(false)
                 enableLights(false)
                 enableVibration(false)
@@ -60,8 +60,8 @@ class KeepAliveService : Service() {
         )
 
         val notification = Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("Money Manager Aktif")
-            .setContentText("Mendeteksi transaksi otomatis di background")
+            .setContentTitle("Money Manager Active")
+            .setContentText("Monitoring financial notifications in the background")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
